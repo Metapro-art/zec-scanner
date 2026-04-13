@@ -1,0 +1,245 @@
+name: 📊 ZEC/USDT · Divergence Scanner
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # cada hora en punto (UTC)
+  workflow_dispatch:
+    inputs:
+      force_alert:
+        description: 'Forzar alerta aunque no haya divergencias frescas'
+        required: false
+        default: 'false'
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  scan:
+    name: Scan ZEC/USDT
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔍 Detectar divergencias ZEC/USDT y crear Issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // ══════════════════════════════════════
+            //  CONFIG
+            // ══════════════════════════════════════
+            const SYMBOL     = 'ZECUSDT';
+            const ASSET      = 'ZEC';
+            const TIMEFRAMES = ['1h', '4h'];
+            const LOOKBACK   = 5;
+            const FRESH_N    = 4;
+            const CANDLES    = 200;
+            const FORCE      = '${{ github.event.inputs.force_alert }}' === 'true';
+
+            // ══════════════════════════════════════
+            //  BINANCE
+            // ══════════════════════════════════════
+            async function fetchKlines(symbol, interval, limit = CANDLES) {
+              const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+              const res = await fetch(url);
+              if (!res.ok) throw new Error(`Binance ${symbol}/${interval}: ${res.status}`);
+              const data = await res.json();
+              return data.map(k => ({
+                time:  Math.floor(k[0] / 1000),
+                open:  parseFloat(k[1]),
+                high:  parseFloat(k[2]),
+                low:   parseFloat(k[3]),
+                close: parseFloat(k[4]),
+              }));
+            }
+
+            // ══════════════════════════════════════
+            //  INDICADORES
+            // ══════════════════════════════════════
+            function calcRSI(closes, period = 14) {
+              const rsi = new Array(closes.length).fill(null);
+              if (closes.length <= period) return rsi;
+              let gains = 0, losses = 0;
+              for (let i = 1; i <= period; i++) {
+                const d = closes[i] - closes[i - 1];
+                if (d >= 0) gains += d; else losses -= d;
+              }
+              let ag = gains / period, al = losses / period;
+              rsi[period] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+              for (let i = period + 1; i < closes.length; i++) {
+                const d = closes[i] - closes[i - 1];
+                ag = (ag * 13 + (d > 0 ? d : 0)) / period;
+                al = (al * 13 + (d < 0 ? -d : 0)) / period;
+                rsi[i] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+              }
+              return rsi;
+            }
+
+            function calcEMA(values, period) {
+              const ema = new Array(values.length).fill(null);
+              const k = 2 / (period + 1);
+              let start = 0;
+              while (start < values.length && values[start] === null) start++;
+              if (start + period > values.length) return ema;
+              let sum = 0;
+              for (let i = start; i < start + period; i++) sum += values[i];
+              ema[start + period - 1] = sum / period;
+              for (let i = start + period; i < values.length; i++)
+                ema[i] = values[i] * k + ema[i - 1] * (1 - k);
+              return ema;
+            }
+
+            function calcMACD(closes) {
+              const ef = calcEMA(closes, 12);
+              const es = calcEMA(closes, 26);
+              return closes.map((_, i) =>
+                ef[i] !== null && es[i] !== null ? ef[i] - es[i] : null);
+            }
+
+            // ══════════════════════════════════════
+            //  PIVOTS + DIVERGENCIAS
+            // ══════════════════════════════════════
+            function findPivots(candles) {
+              const highs = [], lows = [];
+              for (let i = LOOKBACK; i < candles.length - LOOKBACK; i++) {
+                let isH = true, isL = true;
+                for (let j = i - LOOKBACK; j <= i + LOOKBACK; j++) {
+                  if (j === i) continue;
+                  if (candles[j].high >= candles[i].high) isH = false;
+                  if (candles[j].low  <= candles[i].low)  isL = false;
+                }
+                if (isH) highs.push(i);
+                if (isL) lows.push(i);
+              }
+              return { highs, lows };
+            }
+
+            function detectDivergences(candles, indicator, indicatorName) {
+              const n    = candles.length;
+              const from = Math.max(0, n - 120);
+              const sub  = candles.slice(from);
+              const indS = indicator.slice(from);
+              const { highs, lows } = findPivots(sub);
+              const divs = [];
+
+              for (let i = 1; i < lows.length; i++) {
+                const a = lows[i - 1], b = lows[i];
+                if (indS[a] === null || indS[b] === null) continue;
+                if (sub[b].low < sub[a].low && indS[b] > indS[a]) {
+                  const absB = from + b;
+                  divs.push({ type: 'BULLISH', indicator: indicatorName,
+                    i1: from+a, i2: absB,
+                    time1: candles[from+a].time, time2: candles[absB].time,
+                    price1: candles[from+a].low, price2: candles[absB].low,
+                    ind1: indS[a], ind2: indS[b],
+                    fresh: absB >= n - FRESH_N,
+                    priceChg: ((candles[absB].low / candles[from+a].low) - 1) * 100,
+                    indChg: indS[b] - indS[a],
+                  });
+                }
+              }
+              for (let i = 1; i < highs.length; i++) {
+                const a = highs[i - 1], b = highs[i];
+                if (indS[a] === null || indS[b] === null) continue;
+                if (sub[b].high > sub[a].high && indS[b] < indS[a]) {
+                  const absB = from + b;
+                  divs.push({ type: 'BEARISH', indicator: indicatorName,
+                    i1: from+a, i2: absB,
+                    time1: candles[from+a].time, time2: candles[absB].time,
+                    price1: candles[from+a].high, price2: candles[absB].high,
+                    ind1: indS[a], ind2: indS[b],
+                    fresh: absB >= n - FRESH_N,
+                    priceChg: ((candles[absB].high / candles[from+a].high) - 1) * 100,
+                    indChg: indS[b] - indS[a],
+                  });
+                }
+              }
+              return divs;
+            }
+
+            // ══════════════════════════════════════
+            //  HELPERS
+            // ══════════════════════════════════════
+            const fmtP = n => n >= 10 ? n.toFixed(2) : n >= 1 ? n.toFixed(3) : n.toFixed(5);
+            const fmtT = u => new Date(u*1000).toISOString().replace('T',' ').slice(0,16)+' UTC';
+            const emo  = t => t === 'BULLISH' ? '🟢' : '🔴';
+            const dir  = t => t === 'BULLISH' ? '▲ ALCISTA (BULLISH)' : '▼ BAJISTA (BEARISH)';
+
+            // ══════════════════════════════════════
+            //  DEDUPLICACIÓN
+            // ══════════════════════════════════════
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              labels: 'divergence-alert', state: 'open', per_page: 50,
+            });
+            const existingTitles = new Set(existing.data.map(i => i.title));
+
+            // ══════════════════════════════════════
+            //  SCAN
+            // ══════════════════════════════════════
+            let created = 0;
+
+            for (const tf of TIMEFRAMES) {
+              console.log(`\nScanning ${SYMBOL} / ${tf}...`);
+              const candles = await fetchKlines(SYMBOL, tf);
+              const closes  = candles.map(c => c.close);
+              const rsi     = calcRSI(closes);
+              const macd    = calcMACD(closes);
+              const lastClose = candles[candles.length-1].close;
+              const lastRSI   = rsi.slice().reverse().find(v => v !== null);
+              const lastMACD  = macd.slice().reverse().find(v => v !== null);
+
+              const allDivs  = [
+                ...detectDivergences(candles, rsi,  'RSI'),
+                ...detectDivergences(candles, macd, 'MACD'),
+              ];
+              const toAlert = FORCE ? allDivs.slice(-2) : allDivs.filter(d => d.fresh);
+              console.log(`  Fresh: ${allDivs.filter(d=>d.fresh).length} | To alert: ${toAlert.length}`);
+
+              for (const d of toAlert) {
+                const title = `${emo(d.type)} [ZEC/USDT · ${tf.toUpperCase()}] ${dir(d.type)} — ${d.indicator} · ${fmtT(d.time2)}`;
+                if (existingTitles.has(title)) { console.log('  Duplicate, skipping.'); continue; }
+
+                const body = `
+## ${emo(d.type)} Divergencia ${dir(d.type)} — ZEC/USDT ${tf.toUpperCase()}
+
+| | |
+|---|---|
+| **Par** | ZEC / USDT |
+| **Timeframe** | ${tf.toUpperCase()} |
+| **Indicador** | ${d.indicator} |
+| **Pivot 1** | ${fmtT(d.time1)} — Precio \`$${fmtP(d.price1)}\` — ${d.indicator} \`${d.ind1.toFixed(3)}\` |
+| **Pivot 2** | ${fmtT(d.time2)} — Precio \`$${fmtP(d.price2)}\` — ${d.indicator} \`${d.ind2.toFixed(3)}\` |
+| **Cambio precio** | ${d.priceChg > 0 ? '+' : ''}${d.priceChg.toFixed(2)}% |
+| **Cambio ${d.indicator}** | ${d.indChg > 0 ? '+' : ''}${d.indChg.toFixed(3)} |
+| **Precio actual** | \`$${fmtP(lastClose)}\` |
+| **RSI actual** | \`${lastRSI?.toFixed(2) ?? '—'}\` |
+| **MACD actual** | \`${lastMACD?.toFixed(5) ?? '—'}\` |
+
+---
+
+${d.type === 'BULLISH'
+  ? '> 🟢 **Señal alcista:** el precio hizo un mínimo más bajo pero el indicador hizo un mínimo más alto. Posible agotamiento bajista.'
+  : '> 🔴 **Señal bajista:** el precio hizo un máximo más alto pero el indicador hizo un máximo más bajo. Posible agotamiento alcista.'}
+
+**Confirmar siempre con:** volumen, acción del precio y contexto de mercado antes de operar.
+
+🔗 [Ver en TradingView](https://www.tradingview.com/chart/?symbol=BINANCE:ZECUSDT&interval=${tf === '1h' ? '60' : '240'})
+
+---
+*🤖 Generado por Divergence Scanner · ${new Date().toISOString()}*
+                `.trim();
+
+                await github.rest.issues.create({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  title, body,
+                  labels: ['divergence-alert', d.type.toLowerCase(), tf, 'zec'],
+                });
+                console.log(`  ✅ Issue: ${title}`);
+                created++;
+                await new Promise(r => setTimeout(r, 400));
+              }
+              await new Promise(r => setTimeout(r, 300));
+            }
+
+            console.log(`\n✅ Scan completo. Issues creados: ${created}`);
