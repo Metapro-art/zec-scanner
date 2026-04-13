@@ -2,15 +2,15 @@ name: 📊 ZEC/USD · Divergence Scanner
 
 on:
   schedule:
-    - cron: '0 * * * *'   # cada hora UTC
+    - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
       force_alert:
-        description: 'Crear issue aunque no haya divergencia fresca'
+        description: 'Forzar issue aunque no haya señal fresca'
         required: false
         default: 'false'
 
-# GITHUB_TOKEN es automático — NO necesitas configurar ningún secret
+# GITHUB_TOKEN es automático — sin secrets adicionales
 permissions:
   issues: write
   contents: read
@@ -20,274 +20,306 @@ jobs:
     name: Scan ZEC/USD
     runs-on: ubuntu-latest
     steps:
-      - name: 🔍 Detectar divergencias ZEC/USD y abrir Issues
+      - name: 🔍 Detectar divergencias y prioridades ZEC/USD
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // ════════════════════════════════════
-            // CONFIG
-            // ════════════════════════════════════
-            const KRAKEN_PAIR = 'ZECUSD';
-            const ASSET_LABEL = 'ZEC/USD';
-            const TIMEFRAMES  = [
-              { label: '1H', mins: 60  },
-              { label: '4H', mins: 240 },
-            ];
-            const LOOKBACK = 5;
-            const FRESH_N  = 5;
-            const FORCE    = '${{ github.event.inputs.force_alert }}' === 'true';
+            const KRAKEN_PAIR  = 'ZECUSD';
+            const ASSET_LABEL  = 'ZEC/USD';
+            const TV_SYMBOL    = 'KRAKEN:ZECUSD';
+            const TIMEFRAMES   = [{label:'1H',mins:60},{label:'4H',mins:240}];
+            const LOOKBACK     = 5;
+            const FRESH_N      = 5;
+            const SESSION_UTC  = {start:7, end:22};
+            const FORCE        = '${{ github.event.inputs.force_alert }}' === 'true';
 
-            // ════════════════════════════════════
-            // KRAKEN FETCH — público, sin API key
-            // ════════════════════════════════════
+            // ── FETCH ──────────────────────────────────────
             async function fetchKlines(pair, mins) {
               const url = `https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=${mins}`;
               const res = await fetch(url);
               if (!res.ok) throw new Error(`Kraken HTTP ${res.status}`);
-              const json = await res.json();
-              if (json.error && json.error.length) throw new Error(json.error[0]);
-              const key  = Object.keys(json.result).find(k => k !== 'last');
-              const rows = json.result[key];
-              if (!rows || !rows.length) throw new Error('Sin datos — par no encontrado');
-              // [time, open, high, low, close, vwap, volume, count]
-              return rows.map(r => ({
-                time: +r[0], open: +r[1], high: +r[2],
-                low:  +r[3], close: +r[4], volume: +r[6],
-              }));
+              const j = await res.json();
+              if (j.error && j.error.length) throw new Error(j.error[0]);
+              const key = Object.keys(j.result).find(k => k !== 'last');
+              const rows = j.result[key];
+              if (!rows || !rows.length) throw new Error('Sin datos Kraken');
+              return rows.map(r => ({time:+r[0],open:+r[1],high:+r[2],low:+r[3],close:+r[4],volume:+r[6]}));
             }
 
-            // ════════════════════════════════════
-            // RSI
-            // ════════════════════════════════════
-            function calcRSI(closes, p = 14) {
+            // ── INDICATORS ─────────────────────────────────
+            function calcRSI(closes, p=14) {
               const out = new Array(closes.length).fill(null);
-              if (closes.length <= p) return out;
-              let ag = 0, al = 0;
-              for (let i = 1; i <= p; i++) {
-                const d = closes[i] - closes[i-1];
-                if (d >= 0) ag += d; else al -= d;
-              }
-              ag /= p; al /= p;
-              out[p] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
-              for (let i = p + 1; i < closes.length; i++) {
-                const d = closes[i] - closes[i-1];
-                ag = (ag * (p-1) + Math.max(d,  0)) / p;
-                al = (al * (p-1) + Math.max(-d, 0)) / p;
-                out[i] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+              if (closes.length<=p) return out;
+              let ag=0, al=0;
+              for (let i=1;i<=p;i++){const d=closes[i]-closes[i-1];if(d>=0)ag+=d;else al-=d;}
+              ag/=p; al/=p;
+              out[p]=al===0?100:100-100/(1+ag/al);
+              for (let i=p+1;i<closes.length;i++){
+                const d=closes[i]-closes[i-1];
+                ag=(ag*(p-1)+Math.max(d,0))/p; al=(al*(p-1)+Math.max(-d,0))/p;
+                out[i]=al===0?100:100-100/(1+ag/al);
               }
               return out;
             }
 
-            // ════════════════════════════════════
-            // EMA / MACD
-            // ════════════════════════════════════
-            function calcEMA(vals, p) {
-              const out = new Array(vals.length).fill(null);
-              const k = 2 / (p + 1);
-              let s = 0;
-              while (s < vals.length && vals[s] === null) s++;
-              if (s + p > vals.length) return out;
-              let sum = 0;
-              for (let i = s; i < s + p; i++) sum += vals[i];
-              out[s + p - 1] = sum / p;
-              for (let i = s + p; i < vals.length; i++)
-                out[i] = vals[i] * k + out[i-1] * (1 - k);
+            function calcEMAArr(vals, p) {
+              const out=new Array(vals.length).fill(null), k=2/(p+1);
+              let s=0; while(s<vals.length&&vals[s]===null)s++;
+              if(s+p>vals.length) return out;
+              let sum=0; for(let i=s;i<s+p;i++) sum+=vals[i];
+              out[s+p-1]=sum/p;
+              for(let i=s+p;i<vals.length;i++) out[i]=vals[i]*k+out[i-1]*(1-k);
               return out;
             }
 
             function calcMACD(closes) {
-              const ef = calcEMA(closes, 12);
-              const es = calcEMA(closes, 26);
-              return closes.map((_, i) =>
-                ef[i] !== null && es[i] !== null ? ef[i] - es[i] : null);
+              const ef=calcEMAArr(closes,12), es=calcEMAArr(closes,26);
+              const line=closes.map((_,i)=>ef[i]!==null&&es[i]!==null?ef[i]-es[i]:null);
+              const sig=calcEMAArr(line,9);
+              return {line, signal:sig, hist:line.map((v,i)=>v!==null&&sig[i]!==null?v-sig[i]:null)};
             }
 
-            // ════════════════════════════════════
-            // OBV
-            // ════════════════════════════════════
             function calcOBV(cands) {
-              const out = new Array(cands.length).fill(0);
-              out[0] = cands[0]?.volume || 0;
-              for (let i = 1; i < cands.length; i++) {
-                const d = cands[i].close - cands[i-1].close;
-                out[i] = out[i-1] + (d > 0 ? cands[i].volume : d < 0 ? -cands[i].volume : 0);
+              const out=new Array(cands.length).fill(0);
+              out[0]=cands[0]?.volume||0;
+              for(let i=1;i<cands.length;i++){
+                const d=cands[i].close-cands[i-1].close;
+                out[i]=out[i-1]+(d>0?cands[i].volume:d<0?-cands[i].volume:0);
               }
               return out;
             }
 
-            // ════════════════════════════════════
-            // PIVOTS + DIVERGENCIAS
-            // ════════════════════════════════════
-            function findPivots(cands) {
-              const hi = [], lo = [];
-              for (let i = LOOKBACK; i < cands.length - LOOKBACK; i++) {
-                let isH = true, isL = true;
-                for (let j = i - LOOKBACK; j <= i + LOOKBACK; j++) {
-                  if (j === i) continue;
-                  if (cands[j].high >= cands[i].high) isH = false;
-                  if (cands[j].low  <= cands[i].low)  isL = false;
-                }
-                if (isH) hi.push(i);
-                if (isL) lo.push(i);
+            function calcStochRSI(rsiArr, rp=14, ks=3, ds=3) {
+              const n=rsiArr.length, rawK=new Array(n).fill(null);
+              for(let i=rp-1;i<n;i++){
+                if(rsiArr[i]===null) continue;
+                const sl=rsiArr.slice(i-rp+1,i+1).filter(v=>v!==null);
+                if(sl.length<rp) continue;
+                const mn=Math.min(...sl), mx=Math.max(...sl);
+                rawK[i]=mx===mn?0:((rsiArr[i]-mn)/(mx-mn))*100;
               }
-              return { hi, lo };
+              const kLine=new Array(n).fill(null);
+              for(let i=ks-1;i<n;i++){
+                const s=[];for(let j=i-ks+1;j<=i;j++)if(rawK[j]!==null)s.push(rawK[j]);
+                if(s.length===ks)kLine[i]=s.reduce((a,b)=>a+b,0)/ks;
+              }
+              const dLine=new Array(n).fill(null);
+              for(let i=ds-1;i<n;i++){
+                const s=[];for(let j=i-ds+1;j<=i;j++)if(kLine[j]!==null)s.push(kLine[j]);
+                if(s.length===ds)dLine[i]=s.reduce((a,b)=>a+b,0)/ds;
+              }
+              return {k:kLine,d:dLine};
+            }
+
+            function calcATR(cands, p=14) {
+              const tr=new Array(cands.length).fill(null);
+              for(let i=1;i<cands.length;i++){
+                const h=cands[i].high,l=cands[i].low,pc=cands[i-1].close;
+                tr[i]=Math.max(h-l,Math.abs(h-pc),Math.abs(l-pc));
+              }
+              return calcEMAArr(tr,p);
+            }
+
+            function calcBBPos(closes, p=20, mult=2) {
+              const out=new Array(closes.length).fill(null);
+              for(let i=p-1;i<closes.length;i++){
+                const sl=closes.slice(i-p+1,i+1);
+                const mean=sl.reduce((a,b)=>a+b,0)/p;
+                const std=Math.sqrt(sl.reduce((s,v)=>s+(v-mean)**2,0)/p);
+                out[i]=std===0?0.5:(closes[i]-(mean-mult*std))/(2*mult*std);
+              }
+              return out;
+            }
+
+            // ── PIVOTS + DIVERGENCE DETECTION ──────────────
+            function findPivots(cands) {
+              const hi=[],lo=[];
+              for(let i=LOOKBACK;i<cands.length-LOOKBACK;i++){
+                let isH=true,isL=true;
+                for(let j=i-LOOKBACK;j<=i+LOOKBACK;j++){
+                  if(j===i)continue;
+                  if(cands[j].high>=cands[i].high)isH=false;
+                  if(cands[j].low<=cands[i].low)isL=false;
+                }
+                if(isH)hi.push(i); if(isL)lo.push(i);
+              }
+              return {hi,lo};
             }
 
             function detectDivs(cands, ind, name) {
-              const n    = cands.length;
-              const from = Math.max(0, n - 120);
-              const sub  = cands.slice(from);
-              const indS = ind.slice(from);
-              const { hi, lo } = findPivots(sub);
-              const out = [];
-
-              // Bullish: precio LL + indicador HL
-              for (let i = 1; i < lo.length; i++) {
-                const a = lo[i-1], b = lo[i];
-                if (indS[a] === null || indS[b] === null) continue;
-                if (sub[b].low < sub[a].low && indS[b] > indS[a])
-                  out.push({ type: 'BULLISH', ind: name,
-                    ta: cands[from+a].time, tb: cands[from+b].time,
-                    pa: cands[from+a].low,  pb: cands[from+b].low,
-                    va: indS[a], vb: indS[b],
-                    fresh: (from + b) >= n - FRESH_N,
-                  });
+              const n=cands.length, from=Math.max(0,n-120);
+              const sub=cands.slice(from), indS=ind.slice(from);
+              const {hi,lo}=findPivots(sub);
+              const out=[];
+              for(let i=1;i<lo.length;i++){
+                const a=lo[i-1],b=lo[i];
+                if(indS[a]===null||indS[b]===null)continue;
+                if(sub[b].low<sub[a].low&&indS[b]>indS[a]){
+                  const ab=from+b;
+                  out.push({type:'BULLISH',ind:name,
+                    ta:cands[from+a].time,tb:cands[ab].time,
+                    pa:cands[from+a].low,pb:cands[ab].low,
+                    va:indS[a],vb:indS[b],fresh:ab>=n-FRESH_N});
+                }
               }
-              // Bearish: precio HH + indicador LH
-              for (let i = 1; i < hi.length; i++) {
-                const a = hi[i-1], b = hi[i];
-                if (indS[a] === null || indS[b] === null) continue;
-                if (sub[b].high > sub[a].high && indS[b] < indS[a])
-                  out.push({ type: 'BEARISH', ind: name,
-                    ta: cands[from+a].time, tb: cands[from+b].time,
-                    pa: cands[from+a].high, pb: cands[from+b].high,
-                    va: indS[a], vb: indS[b],
-                    fresh: (from + b) >= n - FRESH_N,
-                  });
+              for(let i=1;i<hi.length;i++){
+                const a=hi[i-1],b=hi[i];
+                if(indS[a]===null||indS[b]===null)continue;
+                if(sub[b].high>sub[a].high&&indS[b]<indS[a]){
+                  const ab=from+b;
+                  out.push({type:'BEARISH',ind:name,
+                    ta:cands[from+a].time,tb:cands[ab].time,
+                    pa:cands[from+a].high,pb:cands[ab].high,
+                    va:indS[a],vb:indS[b],fresh:ab>=n-FRESH_N});
+                }
               }
               return out;
             }
 
-            // ════════════════════════════════════
-            // HELPERS
-            // ════════════════════════════════════
-            const fp = n => n === null || n === undefined ? '—'
-              : n >= 100 ? n.toFixed(2) : n >= 1 ? n.toFixed(3) : n.toFixed(5);
-            const ft = u => new Date(u * 1000).toISOString()
-              .replace('T', ' ').slice(0, 16) + ' UTC';
-            const em = t => t === 'BULLISH' ? '🟢' : '🔴';
-            const dr = t => t === 'BULLISH' ? '▲ ALCISTA' : '▼ BAJISTA';
+            // ── PRIORITY ───────────────────────────────────
+            function getPriority(cands, sD, mD, oD, atrArr, bbPosArr) {
+              const fresh=[...sD,...mD,...oD].filter(d=>d.fresh);
+              if(!fresh.length) return null;
+              const inds=['SRSI','MACD','OBV'];
+              const bS=inds.filter(n=>fresh.some(d=>d.ind===n&&d.type==='BULLISH')).length;
+              const brS=inds.filter(n=>fresh.some(d=>d.ind===n&&d.type==='BEARISH')).length;
+              const topType=bS>=brS?'BULLISH':'BEARISH';
+              const topScore=Math.max(bS,brS);
+              const n=cands.length;
+              const last=cands[n-1],prev=cands[n-2]||last;
+              const lastATR=atrArr.slice().reverse().find(v=>v!==null)||0;
+              const lastBBP=bbPosArr.slice().reverse().find(v=>v!==null);
+              const minMove=lastATR*0.3;
+              const bullConf=topType==='BULLISH'&&last.close>last.open&&last.close>prev.high&&(last.close-prev.close)>minMove;
+              const bearConf=topType==='BEARISH'&&last.close<last.open&&last.close<prev.low&&(prev.close-last.close)>minMove;
+              const confirmed=bullConf||bearConf;
+              const utcH=new Date().getUTCHours();
+              const inSess=utcH>=SESSION_UTC.start&&utcH<SESSION_UTC.end;
+              const bbCtx=lastBBP!==null?(topType==='BULLISH'?lastBBP<0.35:lastBBP>0.65):false;
+              const agree=inds.filter(n=>fresh.some(d=>d.ind===n&&d.type===topType));
+              const entry=last.close;
+              const sl=topType==='BULLISH'?entry-lastATR*1.5:entry+lastATR*1.5;
+              const tp=topType==='BULLISH'?entry+lastATR*2.5:entry-lastATR*2.5;
+              let level=3;
+              if(topScore>=2&&confirmed&&inSess)level=1;
+              else if(topScore>=2&&inSess)level=2;
+              return {level,topType,topScore,confirmed,inSess,bbCtx,agree,entry,sl,tp,lastATR,utcH};
+            }
 
-            // ════════════════════════════════════
-            // DEDUPLICAR — evitar issues repetidos
-            // ════════════════════════════════════
-            const existing = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo:  context.repo.repo,
-              labels: 'divergence',
-              state:  'open',
-              per_page: 50,
+            // ── HELPERS ────────────────────────────────────
+            const fp=n=>n===null||n===undefined?'—':Math.abs(n)>=100?n.toFixed(2):Math.abs(n)>=1?n.toFixed(3):n.toFixed(5);
+            const ft=u=>new Date(u*1000).toISOString().replace('T',' ').slice(0,16)+' UTC';
+            const em=t=>t==='BULLISH'?'🟢':'🔴';
+            const dr=t=>t==='BULLISH'?'▲ ALCISTA':'▼ BAJISTA';
+            const pl={1:'🚨 P1 ENTRADA',2:'⚠️ P2 WATCH',3:'📡 P3 RADAR'};
+
+            // ── DEDUP ──────────────────────────────────────
+            const existing=await github.rest.issues.listForRepo({
+              owner:context.repo.owner,repo:context.repo.repo,
+              labels:'divergence',state:'open',per_page:50,
             });
-            const openTitles = new Set(existing.data.map(i => i.title));
+            const openTitles=new Set(existing.data.map(i=>i.title));
 
-            // ════════════════════════════════════
-            // SCAN
-            // ════════════════════════════════════
-            let created = 0;
+            // ── SCAN ───────────────────────────────────────
+            let created=0;
 
-            for (const { label, mins } of TIMEFRAMES) {
+            for (const {label,mins} of TIMEFRAMES) {
               console.log(`\n── ${ASSET_LABEL} / ${label} ──`);
               try {
-                const cands     = await fetchKlines(KRAKEN_PAIR, mins);
-                const closes    = cands.map(c => c.close);
-                const rsi       = calcRSI(closes);
-                const macd      = calcMACD(closes);
-                const obv       = calcOBV(cands);
-                const lastClose = cands[cands.length - 1].close;
-                const lastRSI   = rsi.slice().reverse().find(v => v !== null);
+                const cands=await fetchKlines(KRAKEN_PAIR,mins);
+                const cl=cands.map(c=>c.close);
+                const rsi=calcRSI(cl);
+                const srsi=calcStochRSI(rsi,14,3,3);
+                const macd=calcMACD(cl);
+                const obv=calcOBV(cands);
+                const atrArr=calcATR(cands);
+                const bbPos=calcBBPos(cl);
 
-                const divs = [
-                  ...detectDivs(cands, rsi,  'RSI'),
-                  ...detectDivs(cands, macd, 'MACD'),
-                  ...detectDivs(cands, obv,  'OBV'),
-                ];
+                const lastClose=cands[cands.length-1].close;
+                const lastK=srsi.k.slice().reverse().find(v=>v!==null);
+                const lastH=macd.hist.slice().reverse().find(v=>v!==null);
+                const lastATR=atrArr.slice().reverse().find(v=>v!==null)||0;
+                const lastBBP=bbPos.slice().reverse().find(v=>v!==null);
 
-                // Confluencia: cuántos indicadores coinciden en la misma dirección
-                const fresh     = divs.filter(d => d.fresh);
-                const bullScore = ['RSI','MACD','OBV']
-                  .filter(n => fresh.some(d => d.ind === n && d.type === 'BULLISH')).length;
-                const bearScore = ['RSI','MACD','OBV']
-                  .filter(n => fresh.some(d => d.ind === n && d.type === 'BEARISH')).length;
-                const confLabel = bullScore >= 2
-                  ? `⚡ ${bullScore}/3 BULL confluence`
-                  : bearScore >= 2
-                  ? `⚡ ${bearScore}/3 BEAR confluence`
-                  : 'Sin confluencia';
+                const sD=detectDivs(cands,srsi.k,'SRSI');
+                const mD=detectDivs(cands,macd.line,'MACD');
+                const oD=detectDivs(cands,obv,'OBV');
+                const fresh=[...sD,...mD,...oD].filter(d=>d.fresh);
 
-                console.log(`   Divs: ${divs.length} | Fresh: ${fresh.length} | Bull: ${bullScore}/3 Bear: ${bearScore}/3`);
+                const prio=getPriority(cands,sD,mD,oD,atrArr,bbPos);
+                console.log(`   Total divs: ${sD.length+mD.length+oD.length} | Fresh: ${fresh.length} | Prio: ${prio?pl[prio.level]:'NONE'}`);
 
-                const toAlert = FORCE ? divs.slice(-3) : fresh;
+                // Skip P3 outside session (unless forced)
+                if(prio&&prio.level===3&&!prio.inSess&&!FORCE){
+                  console.log(`   → P3 fuera de sesión (${prio.utcH}h UTC), omitiendo`); continue;
+                }
+                if(!fresh.length&&!FORCE){
+                  console.log('   → Sin divergencias frescas'); continue;
+                }
 
-                for (const d of toAlert) {
-                  const title = `${em(d.type)} [${ASSET_LABEL}·${label}] ${dr(d.type)} ${d.ind} · ${ft(d.tb)}`;
-                  if (openTitles.has(title)) {
-                    console.log(`   Duplicado, omitiendo: ${d.ind}`);
-                    continue;
-                  }
+                const toAlert=FORCE?[...sD,...mD,...oD].slice(-4):fresh;
+                const prioLevel=prio?prio.level:3;
+                const prioType=prio?prio.topType:(fresh[0]?.type||'BULLISH');
+                const title=`${pl[prioLevel]} ${em(prioType)} [${ASSET_LABEL}·${label}] ${dr(prioType)} · ${new Date().toISOString().slice(0,13)}h UTC`;
 
-                  const obvNote = d.ind === 'OBV'
-                    ? '\n> 💡 **OBV no se puede manipular** — esta señal tiene mayor peso que RSI/MACD.'
-                    : '';
+                if(openTitles.has(title)){console.log('   → Duplicado, omitiendo'); continue;}
 
-                  const body = `
-## ${em(d.type)} Divergencia ${dr(d.type)} — ${ASSET_LABEL} ${label}
+                const divRows=toAlert.map(d=>`| ${d.ind} | ${em(d.type)} ${d.type} | ${ft(d.ta)} \`$${fp(d.pa)}\` | ${ft(d.tb)} \`$${fp(d.pb)}\` |`).join('\n');
+                const obvNote=toAlert.some(d=>d.ind==='OBV')?'\n> 💡 **OBV confirmado** — volumen real, no manipulable.':'';
+                const bbNote=prio?.bbCtx?(prioType==='BULLISH'?'\n> 📊 **BB:** Precio cerca de banda inferior — contexto de compra.':'\n> 📊 **BB:** Precio cerca de banda superior — contexto de short.'):'';
+                const confNote=prio?.confirmed?'\n> ✅ **Vela confirmada** — precio ya rompió nivel de confirmación.':'';
+                const sessNote=prio&&!prio.inSess?'\n> ⚠️ **Fuera sesión 7-22 UTC** — volumen reducido.':'';
+
+                const body=`## ${pl[prioLevel]} ${em(prioType)} ${dr(prioType)} — ${ASSET_LABEL} ${label}
 
 | Campo | Valor |
 |---|---|
 | **Par** | ${ASSET_LABEL} (Kraken) |
 | **Timeframe** | ${label} |
-| **Indicador** | **${d.ind}** |
-| **Pivot 1** | ${ft(d.ta)} — Precio \`$${fp(d.pa)}\` — ${d.ind}: \`${typeof d.va === 'number' ? d.va.toFixed(4) : d.va}\` |
-| **Pivot 2** | ${ft(d.tb)} — Precio \`$${fp(d.pb)}\` — ${d.ind}: \`${typeof d.vb === 'number' ? d.vb.toFixed(4) : d.vb}\` |
-| **Precio actual** | \`$${fp(lastClose)}\` |
-| **RSI actual** | \`${lastRSI?.toFixed(2) ?? '—'}\` |
-| **Confluencia** | ${confLabel} |
+| **Prioridad** | **${pl[prioLevel]}** |
+| **Confluencia** | ${prio?prio.agree.join(' + ')+' ('+prio.topScore+'/3)':toAlert.map(d=>d.ind).join('+')} |
+| **Precio** | \`$${fp(lastClose)}\` |
+| **ATR(14)** | \`$${fp(lastATR)}\` |
+| **Stop Loss** | \`$${fp(prio?.sl)}\` (ATR × 1.5) |
+| **Take Profit** | \`$${fp(prio?.tp)}\` (ATR × 2.5) |
+| **R:R** | 1.67 : 1 |
+| **Stoch RSI K** | \`${lastK?.toFixed(1)??'—'}\` |
+| **MACD Hist** | \`${lastH?.toFixed(5)??'—'}\` |
+| **BB Pos** | \`${lastBBP?.toFixed(2)??'—'}\` (0=bajo, 1=alto) |
+| **Sesión** | ${prio?.inSess?'🟢 Activa':'🔴 Inactiva'} (${prio?.utcH??new Date().getUTCHours()}h UTC) |
 
 ---
+### Divergencias frescas
 
-> ${d.type === 'BULLISH'
-    ? '🟢 **Divergencia alcista:** precio baja pero ' + d.ind + ' sube → posible agotamiento bajista.'
-    : '🔴 **Divergencia bajista:** precio sube pero ' + d.ind + ' baja → posible agotamiento alcista.'}
-${obvNote}
-
-**Confirmar siempre** con acción del precio y contexto de mercado antes de operar.
-
-🔗 [Ver en TradingView — ${ASSET_LABEL} ${label}](https://www.tradingview.com/chart/?symbol=KRAKEN:ZECUSD&interval=${mins === 60 ? '60' : '240'})
+| Indicador | Tipo | Pivot 1 | Pivot 2 |
+|---|---|---|---|
+${divRows}
 
 ---
-*🤖 Divergence Scanner · ${new Date().toISOString()}*
-                  `.trim();
+${obvNote}${bbNote}${confNote}${sessNote}
 
-                  await github.rest.issues.create({
-                    owner:  context.repo.owner,
-                    repo:   context.repo.repo,
-                    title,
-                    body,
-                    labels: ['divergence', d.type.toLowerCase(), label.toLowerCase(), 'zec', d.ind.toLowerCase()],
-                  });
+### Acción sugerida
+${prioType==='BULLISH'
+  ?`> 🟢 **LONG / COMPRA**\n> Entrada: \`~$${fp(prio?.entry||lastClose)}\` · Stop: \`$${fp(prio?.sl)}\` · Target: \`$${fp(prio?.tp)}\`\n> Confirmar con vela verde cerrando sobre máximo anterior.`
+  :`> 🔴 **SHORT / VENTA**\n> Entrada: \`~$${fp(prio?.entry||lastClose)}\` · Stop: \`$${fp(prio?.sl)}\` · Target: \`$${fp(prio?.tp)}\`\n> Confirmar con vela roja cerrando bajo mínimo anterior.`}
 
-                  console.log(`   ✅ Issue: ${title}`);
-                  created++;
-                  await new Promise(r => setTimeout(r, 500)); // rate limit safety
-                }
+🔗 [TradingView ${ASSET_LABEL} ${label}](https://www.tradingview.com/chart/?symbol=${TV_SYMBOL}&interval=${mins===60?'60':'240'})
 
-              } catch (err) {
-                console.error(`   ❌ Error en ${label}:`, err.message);
+---
+*🤖 Scanner · ${new Date().toISOString()} · P${prioLevel}*`;
+
+                await github.rest.issues.create({
+                  owner:context.repo.owner,repo:context.repo.repo,
+                  title,body,
+                  labels:['divergence',`p${prioLevel}`,prioType.toLowerCase(),label.toLowerCase(),'zec'],
+                });
+                console.log(`   ✅ ${title}`);
+                created++;
+                await new Promise(r=>setTimeout(r,600));
+              } catch(err){
+                console.error(`   ❌ Error ${label}:`,err.message);
               }
-
-              await new Promise(r => setTimeout(r, 400));
+              await new Promise(r=>setTimeout(r,400));
             }
-
             console.log(`\n📊 Scan completo — Issues creados: ${created}`);
-            if (created === 0) console.log('Sin divergencias frescas en esta ejecución.');
