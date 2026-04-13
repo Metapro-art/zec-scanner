@@ -1,0 +1,95 @@
+name: 📊 ZEC/USDT · Divergence Scanner
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # cada hora en punto (UTC)
+  workflow_dispatch:
+    inputs:
+      force_alert:
+        description: 'Forzar alerta aunque no haya divergencias frescas'
+        required: false
+        default: 'false'
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  scan:
+    name: Scan ZEC/USDT
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔍 Detectar divergencias ZEC/USDT y crear Issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // ══════════════════════════════════════
+            //  CONFIG
+            // ══════════════════════════════════════
+            const SYMBOL     = 'ZECUSDT';
+            const ASSET      = 'ZEC';
+            const TIMEFRAMES = ['1h', '4h'];
+            const LOOKBACK   = 5;
+            const FRESH_N    = 4;
+            const CANDLES    = 200;
+            const FORCE      = '${{ github.event.inputs.force_alert }}';
+            const ALGO       = 'rsi';
+            const LIMIT      = 0.8;
+            const MARGIN     = 0.05;
+            const MFI_MARGIN = 10;
+            const API_URL    = 'https://api.binance.com/api/v3/klines';
+            const RSI_PERIOD = 14;
+            const RSI_THRESH = 50;
+            const MFI_PERIOD = 14;
+            const MFI_THRESH = 50;
+
+            // ══════════════════════════════════════
+            //  FUNCIONES
+            // ══════════════════════════════════════
+            function getData(symbol, interval, limit) {
+              const url = `${API_URL}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+              const response = await fetch(url);
+              return await response.json();
+            }
+
+            async function calculateRSI(data) {
+              let gains = 0;
+              let losses = 0;
+
+              for (let i = 1; i < data.length; i++) {
+                const change = data[i][4] - data[i - 1][4];
+                if (change > 0) {
+                  gains += change;
+                } else {
+                  losses -= change;
+                }
+              }
+
+              const avgGain = gains / RSI_PERIOD;
+              const avgLoss = losses / RSI_PERIOD;
+
+              const rs = avgGain / avgLoss;
+              const rsi = 100 - (100 / (1 + rs));
+
+              return rsi;
+            }
+
+            // Fetch data and calculate divergence
+            const data = await getData(SYMBOL, '1h', CANDLES);
+            const rsi = await calculateRSI(data);
+
+            // Compare with threshold and create an issue if necessary
+            if (rsi > RSI_THRESH) {
+              await createIssue('Divergence Detected', `RSI divergence detected for ${SYMBOL} at ${new Date().toISOString()}`);
+            }
+
+          - name: "Create issue"
+            uses: octokit/request-action@v2
+            with:
+              route: POST /repos/{owner}/{repo}/issues
+              owner: ${{ github.repository_owner }}
+              repo: ${{ github.event.repository.name }}
+              title: "RSI Divergence Detected"
+              body: "RSI divergence detected for ZEC/USDT on the 1-hour timeframe."
