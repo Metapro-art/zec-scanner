@@ -181,9 +181,14 @@ jobs:
             function getPriority(cands, sD, mD, oD, atrArr, bbPosArr) {
               const fresh=[...sD,...mD,...oD].filter(d=>d.fresh);
               if(!fresh.length) return null;
+              // OBV weighted scoring: OBV=2, SRSI=1, MACD=1, max=4
+              const W={SRSI:1,MACD:1,OBV:2};
               const inds=['SRSI','MACD','OBV'];
-              const bS=inds.filter(n=>fresh.some(d=>d.ind===n&&d.type==='BULLISH')).length;
-              const brS=inds.filter(n=>fresh.some(d=>d.ind===n&&d.type==='BEARISH')).length;
+              let bS=0,brS=0;
+              inds.forEach(n=>{
+                if(fresh.some(d=>d.ind===n&&d.type==='BULLISH'))bS+=W[n];
+                if(fresh.some(d=>d.ind===n&&d.type==='BEARISH'))brS+=W[n];
+              });
               const topType=bS>=brS?'BULLISH':'BEARISH';
               const topScore=Math.max(bS,brS);
               const n=cands.length;
@@ -202,9 +207,12 @@ jobs:
               const sl=topType==='BULLISH'?entry-lastATR*1.5:entry+lastATR*1.5;
               const tp=topType==='BULLISH'?entry+lastATR*2.5:entry-lastATR*2.5;
               let level=3;
-              if(topScore>=2&&confirmed&&inSess)level=1;
-              else if(topScore>=2)level=2;
-              return {level,topType,topScore,confirmed,inSess,bbCtx,agree,entry,sl,tp,lastATR,utcH};
+              // P1 requires score>=3 (impossible without OBV since max w/o OBV=2)
+              if(topScore>=3&&confirmed&&inSess)level=1;
+              else if(topScore>=2)level=2;  // OBV alone=2pts qualifies
+              const hasOBV=fresh.some(d=>d.ind==='OBV'&&d.type===topType);
+              const scoreStr=topScore+'/4';
+              return {level,topType,topScore,hasOBV,scoreStr,confirmed,inSess,bbCtx,agree,entry,sl,tp,lastATR,utcH};
             }
 
             // ── HELPERS ────────────────────────────────────
@@ -281,8 +289,8 @@ jobs:
                   '',
                   'Par: ' + ASSET_LABEL + ' (Kraken)',
                   'Timeframe: ' + label,
-                  'Prioridad: ' + pl[prioLevel],
-                  'Confluencia: ' + conf,
+                  'Prioridad: ' + pl[prioLevel] + ' (' + (prio?.scoreStr||'?/4') + ')',
+                  'Confluencia: ' + conf + (prio?.hasOBV?' [OBV confirmado - mayor confiabilidad]':' [SIN OBV - señal debil]'),
                   'Precio: $' + fp(lastClose),
                   'ATR(14): $' + fp(lastATR),
                   'Stop Loss: $' + fp(prio?.sl) + ' (ATR x 1.5)',
