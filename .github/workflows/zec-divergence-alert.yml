@@ -29,8 +29,8 @@ jobs:
             const ASSET_LABEL  = 'ZEC/USD';
             const TV_SYMBOL    = 'KRAKEN:ZECUSD';
             const TIMEFRAMES   = [{label:'1H',mins:60},{label:'4H',mins:240}];
-            const LOOKBACK     = 5;
-            const FRESH_N      = 5;
+            const LOOKBACK     = 3;
+            const FRESH_N      = 10;
             const SESSION_UTC  = {start:7, end:22};
             const FORCE        = '${{ github.event.inputs.force_alert }}' === 'true';
 
@@ -160,7 +160,7 @@ jobs:
                   out.push({type:'BULLISH',ind:name,
                     ta:cands[from+a].time,tb:cands[ab].time,
                     pa:cands[from+a].low,pb:cands[ab].low,
-                    va:indS[a],vb:indS[b],fresh:ab>=n-FRESH_N});
+                    va:indS[a],vb:indS[b],fresh:ab>=n-(FRESH_N+LOOKBACK)});
                 }
               }
               for(let i=1;i<hi.length;i++){
@@ -171,7 +171,7 @@ jobs:
                   out.push({type:'BEARISH',ind:name,
                     ta:cands[from+a].time,tb:cands[ab].time,
                     pa:cands[from+a].high,pb:cands[ab].high,
-                    va:indS[a],vb:indS[b],fresh:ab>=n-FRESH_N});
+                    va:indS[a],vb:indS[b],fresh:ab>=n-(FRESH_N+LOOKBACK)});
                 }
               }
               return out;
@@ -190,9 +190,9 @@ jobs:
               const last=cands[n-1],prev=cands[n-2]||last;
               const lastATR=atrArr.slice().reverse().find(v=>v!==null)||0;
               const lastBBP=bbPosArr.slice().reverse().find(v=>v!==null);
-              const minMove=lastATR*0.3;
-              const bullConf=topType==='BULLISH'&&last.close>last.open&&last.close>prev.high&&(last.close-prev.close)>minMove;
-              const bearConf=topType==='BEARISH'&&last.close<last.open&&last.close<prev.low&&(prev.close-last.close)>minMove;
+              const minMove=lastATR*0.2;
+              const bs3=(last.close>last.open?1:0)+(last.close>prev.high?1:0)+((last.close-prev.close)>minMove?1:0);const bullConf=topType==='BULLISH'&&bs3>=1;
+              const bs4=(last.close<last.open?1:0)+(last.close<prev.low?1:0)+((prev.close-last.close)>minMove?1:0);const bearConf=topType==='BEARISH'&&bs4>=1;
               const confirmed=bullConf||bearConf;
               const utcH=new Date().getUTCHours();
               const inSess=utcH>=SESSION_UTC.start&&utcH<SESSION_UTC.end;
@@ -203,7 +203,7 @@ jobs:
               const tp=topType==='BULLISH'?entry+lastATR*2.5:entry-lastATR*2.5;
               let level=3;
               if(topScore>=2&&confirmed&&inSess)level=1;
-              else if(topScore>=2&&inSess)level=2;
+              else if(topScore>=2)level=2;
               return {level,topType,topScore,confirmed,inSess,bbCtx,agree,entry,sl,tp,lastATR,utcH};
             }
 
@@ -242,7 +242,7 @@ jobs:
                 const lastATR=atrArr.slice().reverse().find(v=>v!==null)||0;
                 const lastBBP=bbPos.slice().reverse().find(v=>v!==null);
 
-                const sD=detectDivs(cands,srsi.k,'SRSI');
+                const sD=detectDivs(cands,srsi.d,'SRSI');
                 const mD=detectDivs(cands,macd.line,'MACD');
                 const oD=detectDivs(cands,obv,'OBV');
                 const fresh=[...sD,...mD,...oD].filter(d=>d.fresh);
@@ -250,10 +250,7 @@ jobs:
                 const prio=getPriority(cands,sD,mD,oD,atrArr,bbPos);
                 console.log(`   Total divs: ${sD.length+mD.length+oD.length} | Fresh: ${fresh.length} | Prio: ${prio?pl[prio.level]:'NONE'}`);
 
-                // Skip P3 outside session (unless forced)
-                if(prio&&prio.level===3&&!prio.inSess&&!FORCE){
-                  console.log(`   → P3 fuera de sesión (${prio.utcH}h UTC), omitiendo`); continue;
-                }
+                // P3 gate removed — fires regardless of session
                 if(!fresh.length&&!FORCE){
                   console.log('   → Sin divergencias frescas'); continue;
                 }
