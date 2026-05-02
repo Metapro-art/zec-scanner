@@ -268,43 +268,45 @@ jobs:
                 const confNote=prio?.confirmed?'\n> ✅ **Vela confirmada** — precio ya rompió nivel de confirmación.':'';
                 const sessNote=prio&&!prio.inSess?'\n> ⚠️ **Fuera sesión 7-22 UTC** — volumen reducido.':'';
 
-                const body=`## ${pl[prioLevel]} ${em(prioType)} ${dr(prioType)} — ${ASSET_LABEL} ${label}
+                const nl = '\n';
+                const row = (k,v) => '| ' + k + ' | ' + v + ' |';
+                const conf = prio ? prio.agree.join(' + ') + ' (' + prio.topScore + '/3)' : toAlert.map(d=>d.ind).join('+');
+                const accion = prioType==='BULLISH'
+                  ? '> LONG/COMPRA: Entrada ~$' + fp(prio?.entry||lastClose) + ' | Stop $' + fp(prio?.sl) + ' | TP $' + fp(prio?.tp) + nl + '> Confirmar: vela verde cerrando sobre maximo anterior.'
+                  : '> SHORT/VENTA: Entrada ~$' + fp(prio?.entry||lastClose) + ' | Stop $' + fp(prio?.sl) + ' | TP $' + fp(prio?.tp) + nl + '> Confirmar: vela roja cerrando bajo minimo anterior.';
+                const sesionStr = (prio?.inSess ? 'Activa' : 'Inactiva') + ' (' + (prio?.utcH ?? new Date().getUTCHours()) + 'h UTC)';
+                const divDetail = toAlert.map(d => '- ' + d.ind + ' ' + d.type + ': Pivot1 ' + ft(d.ta) + ' $' + fp(d.pa) + ' -> Pivot2 ' + ft(d.tb) + ' $' + fp(d.pb)).join(nl);
+                const bodyLines = [
+                  '## ' + pl[prioLevel] + ' ' + em(prioType) + ' ' + dr(prioType) + ' -- ' + ASSET_LABEL + ' ' + label,
+                  '',
+                  'Par: ' + ASSET_LABEL + ' (Kraken)',
+                  'Timeframe: ' + label,
+                  'Prioridad: ' + pl[prioLevel],
+                  'Confluencia: ' + conf,
+                  'Precio: $' + fp(lastClose),
+                  'ATR(14): $' + fp(lastATR),
+                  'Stop Loss: $' + fp(prio?.sl) + ' (ATR x 1.5)',
+                  'Take Profit: $' + fp(prio?.tp) + ' (ATR x 2.5)',
+                  'R:R: 1.67 a 1',
+                  'Stoch RSI K: ' + (lastK != null ? lastK.toFixed(1) : '-'),
+                  'MACD Hist: ' + (lastH != null ? lastH.toFixed(5) : '-'),
+                  'BB Pos: ' + (lastBBP != null ? lastBBP.toFixed(2) : '-'),
+                  'Sesion: ' + sesionStr,
+                  '',
+                  '### Divergencias frescas',
+                  divDetail,
+                  '',
+                  (obvNote || ''), (bbNote || ''), (confNote || ''), (sessNote || ''),
+                  '',
+                  '### Accion sugerida',
+                  accion,
+                  '',
+                  'TradingView: https://www.tradingview.com/chart/?symbol=' + TV_SYMBOL + '&interval=' + (mins===60?'60':'240'),
+                  '',
+                  'Scanner: ' + new Date().toISOString() + ' P' + prioLevel,
+                ];
+                const body = bodyLines.filter(l => l !== undefined && l !== null).join(nl);
 
-| Campo | Valor |
-|---|---|
-| **Par** | ${ASSET_LABEL} (Kraken) |
-| **Timeframe** | ${label} |
-| **Prioridad** | **${pl[prioLevel]}** |
-| **Confluencia** | ${prio?prio.agree.join(' + ')+' ('+prio.topScore+'/3)':toAlert.map(d=>d.ind).join('+')} |
-| **Precio** | \`$${fp(lastClose)}\` |
-| **ATR(14)** | \`$${fp(lastATR)}\` |
-| **Stop Loss** | \`$${fp(prio?.sl)}\` (ATR × 1.5) |
-| **Take Profit** | \`$${fp(prio?.tp)}\` (ATR × 2.5) |
-| **R:R** | 1.67 : 1 |
-| **Stoch RSI K** | \`${lastK?.toFixed(1)??'—'}\` |
-| **MACD Hist** | \`${lastH?.toFixed(5)??'—'}\` |
-| **BB Pos** | \`${lastBBP?.toFixed(2)??'—'}\` (0=bajo, 1=alto) |
-| **Sesión** | ${prio?.inSess?'🟢 Activa':'🔴 Inactiva'} (${prio?.utcH??new Date().getUTCHours()}h UTC) |
-
----
-### Divergencias frescas
-
-| Indicador | Tipo | Pivot 1 | Pivot 2 |
-|---|---|---|---|
-${divRows}
-
----
-${obvNote}${bbNote}${confNote}${sessNote}
-
-### Acción sugerida
-${prioType==='BULLISH'
-  ?`> 🟢 **LONG / COMPRA**\n> Entrada: \`~$${fp(prio?.entry||lastClose)}\` · Stop: \`$${fp(prio?.sl)}\` · Target: \`$${fp(prio?.tp)}\`\n> Confirmar con vela verde cerrando sobre máximo anterior.`
-  :`> 🔴 **SHORT / VENTA**\n> Entrada: \`~$${fp(prio?.entry||lastClose)}\` · Stop: \`$${fp(prio?.sl)}\` · Target: \`$${fp(prio?.tp)}\`\n> Confirmar con vela roja cerrando bajo mínimo anterior.`}
-
-🔗 [TradingView ${ASSET_LABEL} ${label}](https://www.tradingview.com/chart/?symbol=${TV_SYMBOL}&interval=${mins===60?'60':'240'})
-
----
-*🤖 Scanner · ${new Date().toISOString()} · P${prioLevel}*`;
 
                 await github.rest.issues.create({
                   owner:context.repo.owner,repo:context.repo.repo,
