@@ -209,7 +209,8 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
       <div class="conf-pip" id="pip-macd" title="MACD"></div>
       <div class="conf-pip" id="pip-obv"  title="OBV"></div>
     </div>
-    <div class="ss" id="s-prio-t">StochRSI · MACD · OBV</div>
+    <div class="ss" id="s-prio-t">OBV=2pts · StochRSI=1pt · MACD=1pt</div>
+    <div class="ss" id="s-upd">—</div>
   </div>
 </div>
 
@@ -224,8 +225,8 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
   <div class="ind-pill"><span class="sw" style="background:var(--red)"></span>StRSI▼</div>
   <div class="ind-pill"><span class="sw" style="background:var(--amb)"></span>MACD▲</div>
   <div class="ind-pill"><span class="sw" style="background:var(--ora)"></span>MACD▼</div>
-  <div class="ind-pill"><span class="sw" style="background:var(--cyn)"></span>OBV▲</div>
-  <div class="ind-pill"><span class="sw" style="background:var(--mag)"></span>OBV▼</div>
+  <div class="ind-pill"><span class="sw" style="background:var(--cyn)"></span>OBV▲ ×2</div>
+  <div class="ind-pill"><span class="sw" style="background:var(--mag)"></span>OBV▼ ×2</div>
 </div>
 
 <!-- CHARTS -->
@@ -592,50 +593,82 @@ function checkConfirmation(divType) {
   return score >= 1;  // require only 1 of 3 (was all 3)
 }
 
+// OBV WEIGHT SYSTEM
+// OBV = 2pts (volumen real, no manipulable)
+// StochRSI = 1pt, MACD = 1pt
+// Max total = 4pts
+// P1 threshold = 3pts → IMPOSIBLE sin OBV (StochRSI+MACD = solo 2pts)
+// P2 threshold = 2pts → OBV solo ya lo activa
+// P3 = cualquier señal fresca
+var OBV_WEIGHT = 2;   // doble peso — matemáticamente P1 requiere OBV
+var IND_WEIGHT = { srsi:1, macd:1, obv: OBV_WEIGHT };
+var P1_THRESH  = 3;   // requiere OBV + al menos 1 más
+var P2_THRESH  = 2;   // OBV solo, o StochRSI+MACD
+
 function calcPriority() {
-  var allFresh = srsiDivs.concat(macdDivs).concat(obvDivs).filter(function(d){ return d.fresh; });
+  var allFresh = srsiDivs.concat(macdDivs).concat(obvDivs)
+    .filter(function(d){ return d.fresh; });
   if (!allFresh.length) return null;
 
-  // Count confluence per direction
-  var indicators = ['srsi','macd','obv'];
-  var bullScore = indicators.filter(function(nm){
-    return allFresh.some(function(d){ return d.ind===nm && d.type==='bull'; });
-  }).length;
-  var bearScore = indicators.filter(function(nm){
-    return allFresh.some(function(d){ return d.ind===nm && d.type==='bear'; });
-  }).length;
+  // Weighted score per direction
+  var bullScore = 0, bearScore = 0;
+  var keys = ['srsi','macd','obv'];
+  keys.forEach(function(nm) {
+    if (allFresh.some(function(d){ return d.ind===nm && d.type==='bull'; }))
+      bullScore += IND_WEIGHT[nm];
+    if (allFresh.some(function(d){ return d.ind===nm && d.type==='bear'; }))
+      bearScore += IND_WEIGHT[nm];
+  });
 
-  var topType  = bullScore >= bearScore ? 'bull' : 'bear';
-  var topScore = Math.max(bullScore, bearScore);
-  var inSess   = isInSession();
-  var confirmed= checkConfirmation(topType);
-  var n        = candles.length;
-  var lastPrice= n > 0 ? candles[n-1].close : 0;
-  var lastATR  = n > 0 ? (atrVals[n-1] || 0) : 0;
+  var topType   = bullScore >= bearScore ? 'bull' : 'bear';
+  var topScore  = Math.max(bullScore, bearScore);
+  var hasOBV    = allFresh.some(function(d){ return d.ind==='obv' && d.type===topType; });
+  var inSess    = isInSession();
+  var confirmed = checkConfirmation(topType);
+
+  var n          = candles.length;
+  var lastPrice  = n > 0 ? candles[n-1].close : 0;
+  var lastATR    = null;
+  for (var ci=n-1;ci>=0;ci--){if(atrVals[ci]!==null){lastATR=atrVals[ci];break;}}
+  lastATR = lastATR || 0;
 
   var entryPrice = lastPrice;
-  var slPrice    = topType === 'bull' ? lastPrice - lastATR * 1.5 : lastPrice + lastATR * 1.5;
-  var tpPrice    = topType === 'bull' ? lastPrice + lastATR * 2.5 : lastPrice - lastATR * 2.5;
+  var slPrice    = topType==='bull' ? lastPrice-lastATR*1.5 : lastPrice+lastATR*1.5;
+  var tpPrice    = topType==='bull' ? lastPrice+lastATR*2.5 : lastPrice-lastATR*2.5;
 
-  // Which indicators agree
-  var agreeList = indicators.filter(function(nm){
+  // Labels with OBV badge and score out of 4
+  var agreeList = keys.filter(function(nm){
     return allFresh.some(function(d){ return d.ind===nm && d.type===topType; });
-  }).map(function(s){ return s.toUpperCase(); });
+  }).map(function(s){
+    return s==='obv' ? '⭐OBV' : s.toUpperCase();  // star = extra weight
+  });
 
-  if (topScore >= 2 && confirmed && inSess) {
-    return { level:1, type:topType, score:topScore, label:'🚨 P1 ENTRADA',
+  var scoreStr = topScore + '/4';
+  var obvNote  = hasOBV ? ' 🔵OBV✓' : ' ⚠ sin OBV';
+
+  // P1: weighted score >= 3 (requires OBV) + confirmed + session
+  if (topScore >= P1_THRESH && confirmed && inSess) {
+    return { level:1, type:topType, score:topScore, hasOBV:hasOBV,
+      label:'🚨 P1 ENTRADA', scoreStr:scoreStr, obvNote:obvNote,
       agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
   }
-  if (topScore >= 2) {
-    var p2lbl = inSess ? '⚠️ P2 WATCH' : '⚠️ P2 FUERA SESIÓN';
-    return { level:2, type:topType, score:topScore, label:p2lbl,
+  // P1 variant: score >= 3 + confirmed but outside session → P2 elevated
+  if (topScore >= P1_THRESH && confirmed) {
+    return { level:2, type:topType, score:topScore, hasOBV:hasOBV,
+      label:'⚠️ P2 CONFIRMAR (fuera sesión)', scoreStr:scoreStr, obvNote:obvNote,
       agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
   }
-  if (allFresh.length) {
-    return { level:3, type:topType, score:topScore, label:'📡 P3 RADAR',
+  // P2: weighted score >= 2 (OBV alone qualifies)
+  if (topScore >= P2_THRESH) {
+    var p2lbl = inSess ? '⚠️ P2 WATCH' : '⚠️ P2 WATCH (fuera sesión)';
+    return { level:2, type:topType, score:topScore, hasOBV:hasOBV,
+      label:p2lbl, scoreStr:scoreStr, obvNote:obvNote,
       agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
   }
-  return null;
+  // P3: any fresh signal
+  return { level:3, type:topType, score:topScore, hasOBV:hasOBV,
+    label:'📡 P3 RADAR', scoreStr:scoreStr, obvNote:obvNote,
+    agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -826,21 +859,48 @@ function drawSVGLines(svgId, divList, coordFn) {
   divList.forEach(function(d){
     var pts = coordFn(d);
     if (pts.x1===null||pts.y1===null||pts.x2===null||pts.y2===null) return;
-    var col = DIV_COLORS[d.ind][d.type];
-    var op  = d.fresh ? 1 : 0.38;
-    var sw  = d.fresh ? 2 : 1.2;
-    var ln  = document.createElementNS('http://www.w3.org/2000/svg','line');
+    var col    = DIV_COLORS[d.ind][d.type];
+    var isOBV  = d.ind === 'obv';
+    var op     = d.fresh ? 1 : 0.38;
+    // OBV lines are thicker and solid (not dashed) to show higher weight
+    var sw     = d.fresh ? (isOBV ? 2.8 : 2) : (isOBV ? 1.8 : 1.2);
+    var dash   = isOBV ? 'none' : '5,3';   // OBV = solid line, others = dashed
+    var rDot   = d.fresh ? (isOBV ? 5 : 3.5) : (isOBV ? 3.5 : 2.5);
+
+    // OBV glow effect: draw a wider semi-transparent line underneath
+    if (isOBV && d.fresh) {
+      var glow = document.createElementNS('http://www.w3.org/2000/svg','line');
+      glow.setAttribute('x1',pts.x1); glow.setAttribute('y1',pts.y1);
+      glow.setAttribute('x2',pts.x2); glow.setAttribute('y2',pts.y2);
+      glow.setAttribute('stroke',col); glow.setAttribute('stroke-width', 6);
+      glow.setAttribute('opacity', 0.18);
+      svg.appendChild(glow);
+    }
+
+    var ln = document.createElementNS('http://www.w3.org/2000/svg','line');
     ln.setAttribute('x1',pts.x1); ln.setAttribute('y1',pts.y1);
     ln.setAttribute('x2',pts.x2); ln.setAttribute('y2',pts.y2);
     ln.setAttribute('stroke',col); ln.setAttribute('stroke-width',sw);
-    ln.setAttribute('stroke-dasharray','5,3'); ln.setAttribute('opacity',op);
+    ln.setAttribute('stroke-dasharray',dash); ln.setAttribute('opacity',op);
     svg.appendChild(ln);
+
     [[pts.x1,pts.y1],[pts.x2,pts.y2]].forEach(function(pair){
-      var c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      c.setAttribute('cx',pair[0]); c.setAttribute('cy',pair[1]);
-      c.setAttribute('r', d.fresh ? 3.5 : 2.5);
-      c.setAttribute('fill',col); c.setAttribute('opacity',op);
-      svg.appendChild(c);
+      // OBV: diamond shape (rotate square 45°) to visually distinguish
+      if (isOBV && d.fresh) {
+        var diamond = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+        var s = rDot;
+        var px = pair[0], py = pair[1];
+        diamond.setAttribute('points',
+          (px)+','+(py-s)+' '+(px+s)+','+(py)+' '+(px)+','+(py+s)+' '+(px-s)+','+(py));
+        diamond.setAttribute('fill',col); diamond.setAttribute('opacity',op);
+        svg.appendChild(diamond);
+      } else {
+        var c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        c.setAttribute('cx',pair[0]); c.setAttribute('cy',pair[1]);
+        c.setAttribute('r', rDot);
+        c.setAttribute('fill',col); c.setAttribute('opacity',op);
+        svg.appendChild(c);
+      }
     });
   });
 }
@@ -931,23 +991,20 @@ function updateStats() {
   // Priority + confluence
   var prio = calcPriority();
 
-  // Reset confluence pips
-  ['pip-srsi','pip-macd','pip-obv'].forEach(function(id){
-    el(id).className = 'conf-pip';
-  });
-
+  // Confluence pips — OBV pip is wider (double weight)
   var allFresh = srsiDivs.concat(macdDivs).concat(obvDivs).filter(function(d){ return d.fresh; });
-
-  // Color pips
-  var indicators = ['srsi','macd','obv'];
-  var pipIds     = ['pip-srsi','pip-macd','pip-obv'];
-  for (var pi = 0; pi < indicators.length; pi++) {
-    var nm = indicators[pi];
-    var hasBull = allFresh.some(function(d){ return d.ind===nm && d.type==='bull'; });
-    var hasBear = allFresh.some(function(d){ return d.ind===nm && d.type==='bear'; });
-    if (hasBull) el(pipIds[pi]).className = 'conf-pip bull';
-    else if (hasBear) el(pipIds[pi]).className = 'conf-pip bear';
-  }
+  var pipCfg = [
+    { id:'pip-srsi', nm:'srsi', flex:'1' },
+    { id:'pip-macd', nm:'macd', flex:'1' },
+    { id:'pip-obv',  nm:'obv',  flex:'2' },   // OBV pip is 2x wide = visual weight
+  ];
+  pipCfg.forEach(function(p) {
+    var hasBull = allFresh.some(function(d){ return d.ind===p.nm && d.type==='bull'; });
+    var hasBear = allFresh.some(function(d){ return d.ind===p.nm && d.type==='bear'; });
+    var pip = el(p.id);
+    pip.style.flex = p.flex;
+    pip.className  = 'conf-pip' + (hasBull?' bull':hasBear?' bear':'');
+  });
 
   // Priority card + banner
   var banner = el('sig-banner');
@@ -956,24 +1013,28 @@ function updateStats() {
   scPrio.className = 'sc hi';
 
   if (prio) {
-    el('s-prio').textContent = prio.label + ' ' + (prio.type==='bull'?'▲':'▼');
+    var dirArrow = prio.type==='bull' ? '▲' : '▼';
+    el('s-prio').textContent = prio.label + ' ' + dirArrow;
     el('s-prio').className   = 'sv '+(prio.type==='bull'?'up':'dn');
-    el('s-prio-t').textContent = prio.agree.join('+') + (prio.level===1?' ✓CONFIRMADO':'') + (prio.inSession?'':' ⚠ Fuera sesión');
+
+    // Show weighted score + OBV status
+    var scoreDisplay = prio.scoreStr + prio.obvNote;
+    var agreeStr     = prio.agree.join('+');
+    var confirmStr   = prio.level===1 ? ' ✓CONF' : (prio.level===2 ? ' — preparar' : ' — radar');
+    el('s-prio-t').textContent = scoreDisplay + ' · ' + agreeStr + confirmStr;
 
     if (prio.level === 1) {
       scPrio.className = 'sc '+(prio.type==='bull'?'p1':'p1b');
       banner.classList.add('show');
       if (prio.type==='bear') banner.classList.add('bear');
-      el('sig-level').textContent = prio.label;
-      el('sig-body').textContent  = ASSET_LABEL+' · '+tf.toUpperCase()+' · '+prio.agree.join('+');
+      el('sig-level').textContent = prio.label + ' ' + prio.scoreStr;
+      el('sig-body').textContent  = ASSET_LABEL+' · '+tf.toUpperCase()+' · '+agreeStr+prio.obvNote;
       el('sig-entry').textContent = (prio.type==='bull'?'COMPRA':'SHORT')+' ~$'+fp(prio.entry)+' | SL $'+fp(prio.sl)+' | TP $'+fp(prio.tp);
-    } else {
-      el('s-prio-t').textContent += prio.level===2?' — Esperando confirm.':' — Vigilar';
     }
   } else {
     el('s-prio').textContent = '— Sin señal fresca';
     el('s-prio').className   = 'sv';
-    el('s-prio-t').textContent = 'StochRSI · MACD · OBV';
+    el('s-prio-t').textContent = 'OBV=2pts · StochRSI=1pt · MACD=1pt';
   }
 
   // Counts
