@@ -160,7 +160,7 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
 </div>
 
 <header>
-  <div class="logo"><div class="logo-dot"></div>ZEC/USD · DIVERGENCE</div>
+  <div class="logo"><div class="logo-dot"></div>ZEC/USD · DIVERGENCE SCANNER</div>
   <div class="controls">
     <div class="seg" id="tf-seg">
       <button class="on" data-tf="1h">1H</button>
@@ -338,6 +338,8 @@ var ASSET_LABEL  = 'ZEC/USD';
 var REFRESH_MS   = 5 * 60 * 1000;   // 5 min
 var TF_MAP       = { '1h': 60, '4h': 240 };
 var SESSION_UTC  = { start: 7, end: 22 }; // active trading hours UTC
+var LOOKBACK     = 3;   // pivot: candles needed each side for confirmation
+var FRESH_N      = 10;  // fresh: must be > LOOKBACK (avoids mathematical impossibility)
 
 // Divergence line colors — indexed by indicator name
 var DIV_COLORS = {
@@ -379,7 +381,7 @@ function fetchWithTimeout(url, ms) {
 
 function fetchKlines(pair, interval) {
   var mins = TF_MAP[interval] || 60;
-  var url  = 'https://api.kraken.com/0/public/OHLC?pair=' + pair + '&interval=' + mins;
+  var url  = 'https://api.kraken.com/0/public/OHLC?pair=' + pair + '&interval=' + mins + '&since=0';
   return fetchWithTimeout(url, 10000).then(function(res) {
     if (!res.ok) throw new Error('Kraken HTTP ' + res.status);
     return res.json();
@@ -502,7 +504,7 @@ function calcATR(cands, p) {
 // SECTION 6 — DIVERGENCE DETECTION
 // ══════════════════════════════════════════════════════════════════
 function findPivots(cands, lb) {
-  lb = lb || 5;
+  lb = lb || LOOKBACK;
   var hi = [], lo = [], i, j, isH, isL;
   for (i = lb; i < cands.length-lb; i++) {
     isH = true; isL = true;
@@ -518,10 +520,10 @@ function findPivots(cands, lb) {
 }
 
 function detectDivs(cands, ind, name) {
-  var n = cands.length, from = Math.max(0, n-120);
+  var n = cands.length, from = Math.max(0, n-200);
   var sub  = cands.slice(from);
   var indS = ind.slice(from);
-  var piv  = findPivots(sub, 5);
+  var piv  = findPivots(sub, LOOKBACK);
   var hi   = piv.hi, lo = piv.lo;
   var out  = [], a, b, absB;
 
@@ -536,7 +538,7 @@ function detectDivs(cands, ind, name) {
         ta:cands[from+a].time, tb:cands[absB].time,
         pa:cands[from+a].low,  pb:cands[absB].low,
         va:indS[a], vb:indS[b],
-        fresh: absB >= n-5,
+        fresh: absB >= n - (FRESH_N + LOOKBACK),
       });
     }
   }
@@ -551,7 +553,7 @@ function detectDivs(cands, ind, name) {
         ta:cands[from+a].time, tb:cands[absB].time,
         pa:cands[from+a].high, pb:cands[absB].high,
         va:indS[a], vb:indS[b],
-        fresh: absB >= n-5,
+        fresh: absB >= n - (FRESH_N + LOOKBACK),
       });
     }
   }
@@ -568,18 +570,26 @@ function isInSession() {
 
 // Check if last candle confirms a divergence reversal
 function checkConfirmation(divType) {
+  // Relaxed: score-based, need 1 of 3 for P2→P1 upgrade
   var n = candles.length;
   if (n < 2) return false;
   var last = candles[n-1], prev = candles[n-2];
-  var lastATR = atrVals[n-1] || 0;
-  var minMove = lastATR * 0.3;
+  var lastATR = null;
+  for (var ci=n-1;ci>=0;ci--){if(atrVals[ci]!==null){lastATR=atrVals[ci];break;}}
+  lastATR = lastATR || 0;
+  var minMove = lastATR * 0.2;   // lowered from 0.3 to 0.2
+
+  var score = 0;
   if (divType === 'bull') {
-    // Green candle breaking above previous high
-    return last.close > last.open && last.close > prev.high && (last.close - prev.close) > minMove;
+    if (last.close > last.open)                           score++;  // green candle
+    if (last.close > prev.high)                           score++;  // breakout prev high
+    if ((last.close - prev.close) > minMove)              score++;  // meaningful move
   } else {
-    // Red candle breaking below previous low
-    return last.close < last.open && last.close < prev.low && (prev.close - last.close) > minMove;
+    if (last.close < last.open)                           score++;  // red candle
+    if (last.close < prev.low)                            score++;  // break prev low
+    if ((prev.close - last.close) > minMove)              score++;  // meaningful move
   }
+  return score >= 1;  // require only 1 of 3 (was all 3)
 }
 
 function calcPriority() {
@@ -616,8 +626,9 @@ function calcPriority() {
     return { level:1, type:topType, score:topScore, label:'🚨 P1 ENTRADA',
       agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
   }
-  if (topScore >= 2 && inSess) {
-    return { level:2, type:topType, score:topScore, label:'⚠️ P2 WATCH',
+  if (topScore >= 2) {
+    var p2lbl = inSess ? '⚠️ P2 WATCH' : '⚠️ P2 FUERA SESIÓN';
+    return { level:2, type:topType, score:topScore, label:p2lbl,
       agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
   }
   if (allFresh.length) {
@@ -1122,7 +1133,7 @@ function loadData() {
       ema21    = calcEMAArr(cl, 21);
       ema50    = calcEMAArr(cl, 50);
 
-      srsiDivs = detectDivs(candles, stochK,       'srsi');
+      srsiDivs = detectDivs(candles, stochD,       'srsi');  // D line = smoother
       macdDivs = detectDivs(candles, macdData.line, 'macd');
       obvDivs  = detectDivs(candles, obvVals,       'obv');
 
