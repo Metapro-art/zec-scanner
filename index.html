@@ -324,10 +324,7 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
 <div class="bottom">
   <div class="panel">
     <div class="phead">⚡ LOG DE SEÑALES
-      <div style="display:flex;gap:4px">
-        <button class="icon-btn" onclick="demoAlert()" style="padding:2px 7px;font-size:9px;border:1px solid var(--acc);color:var(--acc)">🧪 DEMO</button>
-        <button class="icon-btn" onclick="clearLog()" style="padding:2px 7px;font-size:9px;border:none">LIMPIAR</button>
-      </div>
+      <button class="icon-btn" onclick="clearLog()" style="padding:2px 7px;font-size:9px;border:none">LIMPIAR</button>
     </div>
     <div id="alert-log"><div class="noalert">Sin señales aún.<br>🚨 P1 ENTRADA · ⚠️ P2 WATCH · 📡 P3 RADAR<br>aparecerán aquí con hora Bogotá (GMT-5).</div></div>
   </div>
@@ -1318,15 +1315,7 @@ function processAlerts() {
 function renderLog() {
   var log = el('alert-log');
   if (!alertLog.length) {
-    log.innerHTML = '<div class="noalert" style="padding:16px 12px;text-align:left">' +
-      '<div style="font-family:var(--sans);font-size:10px;font-weight:700;color:var(--acc);margin-bottom:8px;letter-spacing:.1em">⚡ LOG DE SEÑALES</div>' +
-      '<div style="font-size:9px;color:var(--tx2);line-height:1.8">' +
-      '📡 P3 RADAR — primera divergencia detectada<br>' +
-      '⚠️ P2 WATCH — confluencia ≥2/4 · preparar orden<br>' +
-      '🚨 P1 ENTRADA — con OBV + vela confirmada<br>' +
-      '</div>' +
-      '<div style="margin-top:8px;font-size:9px;color:var(--tx3)">Cada señal muestra: hora Bogotá · precio · SL · TP · explicación del indicador.<br>Usa 🧪 DEMO para ver el formato.</div>' +
-    '</div>';
+    log.innerHTML = '<div class="noalert">Sin señales aún.<br>📡 P3 · ⚠️ P2 · 🚨 P1<br>Aparecen aquí con hora Bogotá.</div>';
     return;
   }
   log.innerHTML = alertLog.map(function(a){ return buildCard(a); }).join('');
@@ -1546,67 +1535,6 @@ function loadData() {
 
 function manualRefresh() { clearInterval(timerH); loadData(); }
 
-
-// ══════════════════════════════════════════════════════════════════
-// DEMO — generate fake P1 alert to show card format
-// ══════════════════════════════════════════════════════════════════
-function demoAlert() {
-  var n       = candles.length;
-  var price   = n > 0 ? candles[n-1].close : 34.820;
-  var lastATR = null;
-  for (var ci=n-1;ci>=0;ci--){if(atrVals[ci]!==null){lastATR=atrVals[ci];break;}}
-  lastATR = lastATR || (price * 0.015); // ~1.5% if no ATR
-
-  var sl = price - lastATR * 1.5;
-  var tp = price + lastATR * 2.5;
-
-  // Add one bull P1 demo and one bear P2 demo
-  var demos = [
-    {
-      key:      'DEMO_BULL_'+Date.now(),
-      level:    1,
-      type:     'bull',
-      ind:      'obv',
-      agree:    'SRSI+⭐OBV',
-      price:    fp(price),
-      sl:       fp(sl),
-      tp:       fp(tp),
-      firedAt:  ftNow(),
-      pivotAt:  ft(n>0?candles[n-3]?.time||0:0) || ft(Math.floor(Date.now()/1000)-10800),
-      score:    '3/4',
-      hasOBV:   true,
-      volSpike: true,
-      trendCtx: 'with',
-      time:     ftNow(),
-      ts:       Date.now(),
-    },
-    {
-      key:      'DEMO_BEAR_'+Date.now(),
-      level:    2,
-      type:     'bear',
-      ind:      'macd',
-      agree:    'MACD+⭐OBV',
-      price:    fp(price * 1.008),
-      sl:       fp(price * 1.008 + lastATR * 1.5),
-      tp:       fp(price * 1.008 - lastATR * 2.5),
-      firedAt:  ft(Math.floor(Date.now()/1000) - 3600),
-      pivotAt:  ft(Math.floor(Date.now()/1000) - 7200),
-      score:    '3/4',
-      hasOBV:   true,
-      volSpike: false,
-      trendCtx: 'against',
-      time:     ft(Math.floor(Date.now()/1000) - 3600),
-      ts:       Date.now() - 3600000,
-    },
-  ];
-
-  // Prepend demos to alertLog (temporary, not saved)
-  var tmpLog = demos.concat(alertLog.slice(0,8));
-  // Render with temp log
-  var log = el('alert-log');
-  log.innerHTML = tmpLog.map(function(a){ return buildCard(a); }).join('');
-  toast('🧪 Demo — así se verán las señales reales','inf',4000);
-}
 
 // ══════════════════════════════════════════════════════════════════
 // SECTION 15 — EVENTS + INIT
