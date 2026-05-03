@@ -173,9 +173,7 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
 .tag-bear{background:#e8486a11;color:var(--red);}
 .guide-txt{font-size:9px;color:var(--tx2);line-height:1.65;}
 .guide-divider{border:none;border-top:1px solid var(--br);margin:8px 0;}
-/* LIVE PRICE DOT */
-.live-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);display:inline-block;margin-right:4px;animation:glow 1s ease-in-out infinite;}
-.live-dot.dead{background:var(--tx3);animation:none;}
+
 /* SIGNAL QUALITY BADGE */
 .sig-qual{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700;white-space:nowrap;}
 .sig-qual.high{background:#2fd88a22;color:var(--grn);border:1px solid #2fd88a44;}
@@ -225,8 +223,8 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
 
 <!-- STATS -->
 <div class="stats">
-  <div class="sc" id="sc-price">
-    <div class="sl"><span class="live-dot dead" id="ws-dot"></span>ZEC/USD LIVE</div>
+  <div class="sc" id="sc-price" style="transition:box-shadow .15s">
+    <div class="sl">Precio ZEC/USD</div>
     <div class="sv" id="s-price">—</div>
     <div class="ss" id="s-chg">—</div>
   </div>
@@ -455,74 +453,9 @@ function getStochLevel(type) {
   else                  return lastK > 50 ? 'good' : lastK > 35 ? 'ok' : 'weak';
 }
 
-// ══════════════════════════════════════════════════════════════════
-// SECTION 2c — WEBSOCKET LIVE PRICE
-// ══════════════════════════════════════════════════════════════════
-var wsConn         = null;
-var wsConnected    = false;
-var wsReconnectT   = null;
-var livePrice      = null;
+// WebSocket desactivado — precio actualiza vía REST cada 60s
+// WebSocket pendiente
 
-function connectWS() {
-  if (wsConn) { try { wsConn.close(); } catch(e){} }
-  try {
-    wsConn = new WebSocket('wss://ws.kraken.com');
-
-    wsConn.onopen = function() {
-      wsConnected = true;
-      el('ws-dot').className = 'live-dot';
-      // Subscribe to ticker for ZEC/USD
-      wsConn.send(JSON.stringify({
-        event: 'subscribe',
-        pair: ['ZEC/USD'],
-        subscription: { name: 'ticker' }
-      }));
-    };
-
-    wsConn.onmessage = function(e) {
-      try {
-        var data = JSON.parse(e.data);
-        // Ticker data arrives as array: [channelID, data, "ticker", "ZEC/USD"]
-        if (Array.isArray(data) && data[2] === 'ticker' && data[1]) {
-          var t = data[1];
-          // c[0] = last trade price
-          livePrice = parseFloat(t.c[0]);
-          updateLivePrice(livePrice);
-        }
-      } catch(err) {}
-    };
-
-    wsConn.onerror = function() {
-      wsConnected = false;
-      el('ws-dot').className = 'live-dot dead';
-    };
-
-    wsConn.onclose = function() {
-      wsConnected = false;
-      el('ws-dot').className = 'live-dot dead';
-      // Auto-reconnect after 5s
-      clearTimeout(wsReconnectT);
-      wsReconnectT = setTimeout(connectWS, 5000);
-    };
-  } catch(e) {
-    el('ws-dot').className = 'live-dot dead';
-  }
-}
-
-function updateLivePrice(price) {
-  if (!price) return;
-  var priceEl = el('s-price');
-  if (!priceEl) return;
-  var prev = parseFloat(priceEl.getAttribute('data-prev') || price);
-  priceEl.textContent = '$' + fp(price);
-  priceEl.className   = 'sv ' + (price >= prev ? 'up' : 'dn');
-  priceEl.setAttribute('data-prev', price);
-  // Also update entry/SL/TP in banner if P1 active using live price
-  var entryEl = el('sig-entry');
-  if (entryEl && entryEl.textContent.includes('~$')) {
-    // Don't update banner live — avoid flickering on P1
-  }
-}
 
 // ══════════════════════════════════════════════════════════════════
 // SECTION 2d — INDICATOR GUIDE
@@ -620,6 +553,7 @@ var alertLog    = JSON.parse(localStorage.getItem('zec_alerts') || '[]');
 var seenKeys    = new Set(JSON.parse(localStorage.getItem('zec_seen')  || '[]'));
 var notifOn     = false;
 var isLoading   = false;
+var firstLoad   = true;  // overlay only on first load, silent after
 var timerH      = null;
 var timerStart  = 0;
 var CH          = {};  // charts
@@ -1532,7 +1466,11 @@ function loadData() {
   if (isLoading) return;
   isLoading = true;
   el('refresh-btn').textContent = '↻ ...';
-  showLoad(true, 'CARGANDO '+ASSET_LABEL+' '+tf.toUpperCase()+'...');
+  // Only show full loading overlay on the very first load
+  // Subsequent refreshes are silent — price updates in background
+  if (firstLoad) {
+    showLoad(true, 'CARGANDO '+ASSET_LABEL+' '+tf.toUpperCase()+'...');
+  }
   showErr('');
 
   fetchKlines(KRAKEN_PAIR, tf)
@@ -1550,23 +1488,40 @@ function loadData() {
       ema50    = calcEMAArr(cl, 50);
 
       volAvg   = calcVolAvg(candles, 20);
-      srsiDivs = detectDivs(candles, stochD,       'srsi');  // D line = smoother
-      macdDivs = detectDivs(candles, macdData.line, 'macd');
-      obvDivs  = detectDivs(candles, obvVals,       'obv');
+      srsiDivs = detectDivs(candles, stochD,        'srsi');
+      macdDivs = detectDivs(candles, macdData.line,  'macd');
+      obvDivs  = detectDivs(candles, obvVals,        'obv');
 
       setData();
       drawDivLines();
       updateStats();
       processAlerts();
+
+      // Flash price card to signal refresh (only on background refreshes)
+      if (!firstLoad) {
+        var pc = el('sc-price');
+        if (pc) {
+          pc.style.transition = 'box-shadow .15s';
+          pc.style.boxShadow  = '0 0 12px #c8923a55';
+          setTimeout(function(){ pc.style.boxShadow = ''; }, 600);
+        }
+      }
+
       showLoad(false);
+      firstLoad = false;
       startTimer();
     })
     .catch(function(err) {
       showLoad(false);
-      showErr('⚠ ' + err.message + '<br>Revisa tu conexión e intenta de nuevo.');
-      toast('Error al cargar datos','err');
+      // On background refresh error: just show toast, don't break UI
+      if (firstLoad) {
+        showErr('⚠ ' + err.message + '<br>Revisa tu conexión e intenta de nuevo.');
+        firstLoad = false;
+      } else {
+        toast('↻ Error al actualizar — reintentando', 'err', 2500);
+      }
       console.error(err);
-      startTimer(); // retry on next tick
+      startTimer();
     })
     .finally(function() {
       isLoading = false;
@@ -1597,7 +1552,6 @@ window.addEventListener('resize', function(){
 initCharts();
 renderLog();
 initGuide();
-connectWS();
 loadData();
 
 // Refresh when tab becomes visible again (user returns to tab)
