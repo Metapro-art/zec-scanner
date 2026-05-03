@@ -106,11 +106,11 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
 @media(max-width:600px){.bottom{grid-template-columns:1fr;}}
 .panel{background:var(--bg1);border:1px solid var(--br);border-radius:6px;overflow:hidden;}
 .phead{padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--br);font-family:var(--sans);font-size:9px;font-weight:700;letter-spacing:.13em;color:var(--acc);text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;}
-#alert-log{height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding:6px;}
+#alert-log{height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:6px;-webkit-overflow-scrolling:touch;}
 @keyframes sli{from{opacity:0;transform:translateX(-4px);}to{opacity:1;transform:none;}}
 
 /* Alert card — full redesign for readability */
-.ait{border-radius:6px;border:1px solid transparent;animation:sli .3s ease;overflow:hidden;}
+.ait{border-radius:6px;border:1px solid transparent;animation:sli .3s ease;flex-shrink:0;}
 .ait.p1 {background:#0d1f0d;border-color:#2fd88a55;box-shadow:0 0 10px #2fd88a18;}
 .ait.p1b{background:#1f0d0d;border-color:#e8486a55;box-shadow:0 0 10px #e8486a18;}
 .ait.p2 {background:#111a0a;border-color:#f0c04044;}
