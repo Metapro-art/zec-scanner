@@ -106,31 +106,49 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
 @media(max-width:600px){.bottom{grid-template-columns:1fr;}}
 .panel{background:var(--bg1);border:1px solid var(--br);border-radius:6px;overflow:hidden;}
 .phead{padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--br);font-family:var(--sans);font-size:9px;font-weight:700;letter-spacing:.13em;color:var(--acc);text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;}
-#alert-log{height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding:5px;}
-.ait{display:flex;gap:7px;align-items:flex-start;padding:7px 8px;border-radius:4px;border:1px solid transparent;animation:sli .25s ease;}
+#alert-log{height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding:6px;}
 @keyframes sli{from{opacity:0;transform:translateX(-4px);}to{opacity:1;transform:none;}}
-.ait.p1{background:#2fd88a0a;border-color:#2fd88a33;}
-.ait.p1b{background:#e8486a0a;border-color:#e8486a33;}
-.ait.p2{background:#f0c0400a;border-color:#f0c04033;}
-.ait.p2b{background:#ff80400a;border-color:#ff804033;}
-.ait.p3{background:#4a9eff0a;border-color:#4a9eff22;}
-.adot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:3px;}
-.adot.p1,.adot.srsi-bull,.adot.macd-bull{background:var(--grn);box-shadow:0 0 4px var(--grn);}
-.adot.p1b,.adot.srsi-bear,.adot.macd-bear{background:var(--red);box-shadow:0 0 4px var(--red);}
-.adot.obv-bull{background:var(--cyn);box-shadow:0 0 4px var(--cyn);}
-.adot.obv-bear{background:var(--mag);box-shadow:0 0 4px var(--mag);}
-.adot.p2{background:var(--amb);}
-.adot.p2b{background:var(--ora);}
-.adot.p3{background:var(--blu);}
-.atit{font-size:10px;font-weight:700;}
-.atit.p1,.atit.srsi-bull,.atit.macd-bull{color:var(--grn);}
-.atit.p1b,.atit.srsi-bear,.atit.macd-bear{color:var(--red);}
-.atit.obv-bull{color:var(--cyn);}
-.atit.obv-bear{color:var(--mag);}
-.atit.p2{color:var(--amb);}
-.atit.p2b{color:var(--ora);}
-.atit.p3{color:var(--blu);}
-.amet{font-size:9px;color:var(--tx3);margin-top:1px;}
+
+/* Alert card — full redesign for readability */
+.ait{border-radius:6px;border:1px solid transparent;animation:sli .3s ease;overflow:hidden;}
+.ait.p1 {background:#0d1f0d;border-color:#2fd88a55;box-shadow:0 0 10px #2fd88a18;}
+.ait.p1b{background:#1f0d0d;border-color:#e8486a55;box-shadow:0 0 10px #e8486a18;}
+.ait.p2 {background:#111a0a;border-color:#f0c04044;}
+.ait.p2b{background:#1a120a;border-color:#ff804044;}
+.ait.p3 {background:#0a0f1a;border-color:#4a9eff33;}
+
+/* Card header strip */
+.ait-head{display:flex;align-items:center;justify-content:space-between;padding:6px 10px 4px;gap:8px;flex-wrap:wrap;}
+.ait-level{font-family:var(--sans);font-size:11px;font-weight:800;letter-spacing:.08em;padding:3px 8px;border-radius:3px;}
+.ait-level.p1 {background:var(--grn);color:#000;}
+.ait-level.p1b{background:var(--red);color:#fff;}
+.ait-level.p2 {background:var(--amb);color:#000;}
+.ait-level.p2b{background:var(--ora);color:#000;}
+.ait-level.p3 {background:var(--blu);color:#000;}
+.ait-dir{font-size:13px;font-weight:800;}
+.ait-dir.bull{color:var(--grn);}
+.ait-dir.bear{color:var(--red);}
+.ait-time{font-size:10px;color:var(--txt);font-weight:700;text-align:right;}
+.ait-time-sub{font-size:9px;color:var(--tx2);}
+
+/* Card body */
+.ait-body{padding:5px 10px 8px;}
+.ait-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;}
+.ait-label{font-size:9px;color:var(--tx2);letter-spacing:.06em;text-transform:uppercase;}
+.ait-val{font-size:11px;font-weight:700;color:var(--txt);}
+.ait-val.grn{color:var(--grn);}
+.ait-val.red{color:var(--red);}
+.ait-val.cyn{color:var(--cyn);}
+.ait-val.amb{color:var(--amb);}
+
+/* Explanation text */
+.ait-explain{margin-top:5px;padding:5px 8px;background:#ffffff08;border-radius:4px;border-left:2px solid;font-size:9px;color:var(--txt);line-height:1.65;}
+.ait-explain.bull{border-color:var(--grn);}
+.ait-explain.bear{border-color:var(--red);}
+
+/* Badges row */
+.ait-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+
 .noalert{text-align:center;padding:28px 14px;color:var(--tx3);font-size:10px;line-height:1.8;}
 .steps{padding:10px;display:flex;flex-direction:column;gap:7px;}
 .step{display:flex;gap:8px;padding:8px;background:var(--bg2);border:1px solid var(--br);border-radius:4px;}
@@ -138,6 +156,37 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
 .stit{font-size:10px;font-weight:700;color:var(--txt);margin-bottom:2px;}
 .sdesc{font-size:9px;color:var(--tx3);line-height:1.7;}
 .sdesc code{color:var(--acd);background:#1a1a1a;padding:1px 3px;border-radius:2px;}
+
+
+/* GUIDE PANEL */
+.guide-section{margin-bottom:10px;}
+.guide-title{font-family:var(--sans);font-size:10px;font-weight:700;color:var(--acc);margin-bottom:4px;letter-spacing:.08em;}
+.guide-row{display:flex;gap:6px;margin-bottom:3px;}
+.guide-tag{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap;flex-shrink:0;}
+.tag-p1{background:#2fd88a22;color:var(--grn);border:1px solid #2fd88a44;}
+.tag-p2{background:#f0c04022;color:var(--amb);border:1px solid #f0c04044;}
+.tag-p3{background:#4a9eff22;color:var(--blu);border:1px solid #4a9eff44;}
+.tag-obv{background:#00d4ff22;color:var(--cyn);border:1px solid #00d4ff44;}
+.tag-srsi{background:#2fd88a22;color:var(--grn);border:1px solid #2fd88a33;}
+.tag-macd{background:#f0c04022;color:var(--amb);border:1px solid #f0c04033;}
+.tag-bull{background:#2fd88a11;color:var(--grn);}
+.tag-bear{background:#e8486a11;color:var(--red);}
+.guide-txt{font-size:9px;color:var(--tx2);line-height:1.65;}
+.guide-divider{border:none;border-top:1px solid var(--br);margin:8px 0;}
+/* LIVE PRICE DOT */
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);display:inline-block;margin-right:4px;animation:glow 1s ease-in-out infinite;}
+.live-dot.dead{background:var(--tx3);animation:none;}
+/* SIGNAL QUALITY BADGE */
+.sig-qual{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700;white-space:nowrap;}
+.sig-qual.high{background:#2fd88a22;color:var(--grn);border:1px solid #2fd88a44;}
+.sig-qual.med{background:#f0c04022;color:var(--amb);border:1px solid #f0c04033;}
+.sig-qual.low{background:#4a9eff22;color:var(--blu);border:1px solid #4a9eff33;}
+/* VOLUME SPIKE BADGE */
+.vol-badge{font-size:8px;padding:1px 4px;border-radius:2px;background:#c8923a22;color:var(--acc);border:1px solid var(--acd);margin-left:4px;}
+/* TREND BADGE */
+.trend-badge{font-size:8px;padding:1px 4px;border-radius:2px;font-weight:700;margin-left:4px;}
+.trend-badge.with{background:#2fd88a22;color:var(--grn);}
+.trend-badge.against{background:#e8486a22;color:var(--red);}
 
 /* TOASTS */
 #toasts{position:fixed;bottom:14px;right:12px;display:flex;flex-direction:column;gap:5px;z-index:9999;}
@@ -177,7 +226,7 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
 <!-- STATS -->
 <div class="stats">
   <div class="sc" id="sc-price">
-    <div class="sl">Precio ZEC/USD</div>
+    <div class="sl"><span class="live-dot dead" id="ws-dot"></span>ZEC/USD LIVE</div>
     <div class="sv" id="s-price">—</div>
     <div class="ss" id="s-chg">—</div>
   </div>
@@ -279,23 +328,11 @@ header{position:sticky;top:0;z-index:50;background:var(--bg1);border-bottom:1px 
     <div class="phead">⚡ LOG DE SEÑALES
       <button class="icon-btn" onclick="clearLog()" style="padding:2px 7px;font-size:9px;border:none">LIMPIAR</button>
     </div>
-    <div id="alert-log"><div class="noalert">Sin señales aún.<br>P1 🚨 · P2 ⚠️ · P3 📡<br>aparecerán aquí en tiempo real.</div></div>
+    <div id="alert-log"><div class="noalert">Sin señales aún.<br>🚨 P1 ENTRADA · ⚠️ P2 WATCH · 📡 P3 RADAR<br>aparecerán aquí con hora Bogotá (GMT-5).</div></div>
   </div>
   <div class="panel">
-    <div class="phead">⬡ GITHUB ACTIONS</div>
-    <div class="steps">
-      <div class="step"><div class="snum">1</div><div>
-        <div class="stit">SUBIR WORKFLOW</div>
-        <div class="sdesc"><code>.github/workflows/divergence-alert.yml</code></div>
-      </div></div>
-      <div class="step"><div class="snum">2</div><div>
-        <div class="stit">ACTIVAR NOTIFICACIONES</div>
-        <div class="sdesc">Repo → <code>Watch → Custom → Issues ✓</code></div>
-      </div></div>
-      <div class="step"><div class="snum">3</div><div>
-        <div class="stit">CERO SECRETS NECESARIOS</div>
-        <div class="sdesc"><code>GITHUB_TOKEN</code> es automático.</div>
-      </div></div>
+    <div class="phead" style="cursor:pointer" onclick="cycleGuide()" id="guide-head">📖 GUÍA — SEÑALES · <span id="guide-tab-lbl">P1/P2/P3</span> ▸</div>
+    <div id="guide-body" style="height:240px;overflow-y:auto;padding:8px 10px;font-size:9px;line-height:1.75;color:var(--tx2);">
     </div>
   </div>
 </div>
@@ -311,7 +348,27 @@ function fp(n)   {
   const abs = Math.abs(n);
   return abs >= 100 ? n.toFixed(2) : abs >= 1 ? n.toFixed(3) : abs >= 0.01 ? n.toFixed(5) : n.toFixed(8);
 }
-function ft(u)   { return new Date(u * 1000).toLocaleString('es-CO', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function ft(u) {
+  // Always show Bogotá time (GMT-5), regardless of user's browser timezone
+  return new Date(u * 1000).toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
+  });
+}
+function ftNow() {
+  // Current time in Bogotá (GMT-5) with seconds — used for alert fired time
+  return new Date().toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+}
+function ftBogota(d) {
+  // Date object → Bogotá time string
+  return d.toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    hour:'2-digit', minute:'2-digit'
+  });
+}
 function fmtOBV(v) {
   const a = Math.abs(v);
   return a >= 1e9 ? (v/1e9).toFixed(2)+'B' : a >= 1e6 ? (v/1e6).toFixed(2)+'M' : a >= 1e3 ? (v/1e3).toFixed(1)+'K' : v.toFixed(0);
@@ -336,7 +393,7 @@ function toast(msg, type, dur) {
 // ══════════════════════════════════════════════════════════════════
 var KRAKEN_PAIR  = 'ZECUSD';
 var ASSET_LABEL  = 'ZEC/USD';
-var REFRESH_MS   = 5 * 60 * 1000;   // 5 min
+var REFRESH_MS   = 60 * 1000;        // 60s — day trading speed
 var TF_MAP       = { '1h': 60, '4h': 240 };
 var SESSION_UTC  = { start: 7, end: 22 }; // active trading hours UTC
 var LOOKBACK     = 3;   // pivot: candles needed each side for confirmation
@@ -348,6 +405,202 @@ var DIV_COLORS = {
   macd: { bull: '#f0c040', bear: '#ff8040' },
   obv:  { bull: '#00d4ff', bear: '#dd44ff' },
 };
+
+
+// ══════════════════════════════════════════════════════════════════
+// SECTION 2b — SIGNAL QUALITY FILTERS
+// ══════════════════════════════════════════════════════════════════
+var VOL_SPIKE_MULT = 1.5;  // volume > 1.5x avg20 = spike
+var TREND_FILTER   = true; // with-trend signals score higher
+
+function calcVolAvg(cands, p) {
+  // 20-period average volume
+  p = p || 20;
+  var out = new Array(cands.length).fill(null);
+  for (var i = p-1; i < cands.length; i++) {
+    var sum = 0;
+    for (var j = i-p+1; j <= i; j++) sum += cands[j].volume;
+    out[i] = sum / p;
+  }
+  return out;
+}
+
+function hasVolumeSpike(cands, volAvg, idx) {
+  if (!volAvg[idx] || volAvg[idx] === 0) return false;
+  return cands[idx].volume >= volAvg[idx] * VOL_SPIKE_MULT;
+}
+
+function getTrendContext(type, idx) {
+  // Returns 'with', 'against', or 'neutral'
+  if (!ema21[idx] || !ema50[idx]) return 'neutral';
+  var price = candles[idx] ? candles[idx].close : 0;
+  if (type === 'bull') {
+    if (price > ema21[idx] && ema21[idx] > ema50[idx]) return 'with';
+    if (price < ema50[idx]) return 'against';
+  } else {
+    if (price < ema21[idx] && ema21[idx] < ema50[idx]) return 'with';
+    if (price > ema50[idx]) return 'against';
+  }
+  return 'neutral';
+}
+
+function getStochLevel(type) {
+  // Bull more reliable when K < 50, bear when K > 50
+  var lastK = null;
+  for (var i = stochK.length-1; i >= 0; i--) {
+    if (stochK[i] !== null) { lastK = stochK[i]; break; }
+  }
+  if (lastK === null) return 'neutral';
+  if (type === 'bull') return lastK < 50 ? 'good' : lastK < 65 ? 'ok' : 'weak';
+  else                  return lastK > 50 ? 'good' : lastK > 35 ? 'ok' : 'weak';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SECTION 2c — WEBSOCKET LIVE PRICE
+// ══════════════════════════════════════════════════════════════════
+var wsConn         = null;
+var wsConnected    = false;
+var wsReconnectT   = null;
+var livePrice      = null;
+
+function connectWS() {
+  if (wsConn) { try { wsConn.close(); } catch(e){} }
+  try {
+    wsConn = new WebSocket('wss://ws.kraken.com');
+
+    wsConn.onopen = function() {
+      wsConnected = true;
+      el('ws-dot').className = 'live-dot';
+      // Subscribe to ticker for ZEC/USD
+      wsConn.send(JSON.stringify({
+        event: 'subscribe',
+        pair: ['ZEC/USD'],
+        subscription: { name: 'ticker' }
+      }));
+    };
+
+    wsConn.onmessage = function(e) {
+      try {
+        var data = JSON.parse(e.data);
+        // Ticker data arrives as array: [channelID, data, "ticker", "ZEC/USD"]
+        if (Array.isArray(data) && data[2] === 'ticker' && data[1]) {
+          var t = data[1];
+          // c[0] = last trade price
+          livePrice = parseFloat(t.c[0]);
+          updateLivePrice(livePrice);
+        }
+      } catch(err) {}
+    };
+
+    wsConn.onerror = function() {
+      wsConnected = false;
+      el('ws-dot').className = 'live-dot dead';
+    };
+
+    wsConn.onclose = function() {
+      wsConnected = false;
+      el('ws-dot').className = 'live-dot dead';
+      // Auto-reconnect after 5s
+      clearTimeout(wsReconnectT);
+      wsReconnectT = setTimeout(connectWS, 5000);
+    };
+  } catch(e) {
+    el('ws-dot').className = 'live-dot dead';
+  }
+}
+
+function updateLivePrice(price) {
+  if (!price) return;
+  var priceEl = el('s-price');
+  if (!priceEl) return;
+  var prev = parseFloat(priceEl.getAttribute('data-prev') || price);
+  priceEl.textContent = '$' + fp(price);
+  priceEl.className   = 'sv ' + (price >= prev ? 'up' : 'dn');
+  priceEl.setAttribute('data-prev', price);
+  // Also update entry/SL/TP in banner if P1 active using live price
+  var entryEl = el('sig-entry');
+  if (entryEl && entryEl.textContent.includes('~$')) {
+    // Don't update banner live — avoid flickering on P1
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SECTION 2d — INDICATOR GUIDE
+// ══════════════════════════════════════════════════════════════════
+var GUIDE_TABS = ['signals','indicators','divergence','entries'];
+var guideIdx   = 0;
+var GUIDE_CONTENT = {
+  signals: '<div class="guide-section">' +
+    '<div class="guide-title">🚨 P1 · P2 · P3 — SISTEMA DE PRIORIDADES</div>' +
+    '<div class="guide-row"><span class="guide-tag tag-p1">P1 ENTRADA</span><span class="guide-txt">Score ≥3/4 + vela confirmada + sesión 7-22h UTC. OBV obligatorio. Ejecutar orden.</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-p2">P2 WATCH</span><span class="guide-txt">Score ≥2/4. OBV solo activa P2 por su peso doble. Preparar orden, esperar confirmación.</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-p3">P3 RADAR</span><span class="guide-txt">Cualquier divergencia fresca. Primer aviso. Observar, no entrar aún.</span></div>' +
+    '<hr class="guide-divider">' +
+    '<div class="guide-title">⚖ SISTEMA DE PESOS</div>' +
+    '<div class="guide-row"><span class="guide-tag tag-obv">OBV = 2pts</span><span class="guide-txt">Volumen real. No manipulable. P1 es imposible sin OBV (StochRSI+MACD solo suman 2).</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-srsi">StRSI = 1pt</span><span class="guide-txt">Sensible, rápido. Línea D suavizada. Más confiable en zona OS/OB extrema.</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-macd">MACD = 1pt</span><span class="guide-txt">Confirmador de tendencia. Más lento. Histograma cambiando = momentum girando.</span></div>' +
+    '</div>',
+
+  indicators: '<div class="guide-section">' +
+    '<div class="guide-title">📈 STOCH RSI (14,3,3)</div>' +
+    '<div class="guide-txt">RSI del RSI, suavizado. Más reactivo que RSI en timeframes cortos. Línea K (verde) = rápida. Línea D (naranja) = suavizada. Divergencias en línea D. Zonas: >80 sobrecomprado · <20 sobrevendido. Cruce K sobre D desde <20 = entrada alcista precisa.</div>' +
+    '<hr class="guide-divider">' +
+    '<div class="guide-title">📉 MACD (12,26,9)</div>' +
+    '<div class="guide-txt">Diferencia entre EMA12 y EMA26. Histograma = MACD menos Signal. Histograma creciendo pero precio cayendo = divergencia bull. Histograma menguando con precio subiendo = divergencia bear.</div>' +
+    '<hr class="guide-divider">' +
+    '<div class="guide-title">📊 OBV — On-Balance Volume</div>' +
+    '<div class="guide-txt">Suma acumulativa: suma volumen si vela verde, resta si vela roja. OBV subiendo con precio bajando = acumulación silenciosa (institucional). OBV bajando con precio subiendo = distribución. Lider del precio — suele divergir ANTES que otros indicadores.</div>' +
+    '<hr class="guide-divider">' +
+    '<div class="guide-title">📏 ATR — Stop & Target</div>' +
+    '<div class="guide-txt">Rango promedio de 14 velas. SL = ATR×1.5 · TP = ATR×2.5 · R:R = 1.67:1 siempre. Si el ATR es muy alto relativo a tu capital, no entres.</div>' +
+    '</div>',
+
+  divergence: '<div class="guide-section">' +
+    '<div class="guide-title">↗ DIVERGENCIA ALCISTA (BULL)</div>' +
+    '<div class="guide-row"><span class="guide-tag tag-bull">PRECIO</span><span class="guide-txt">Hace mínimo MÁS BAJO (línea baja)</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-bull">INDIC.</span><span class="guide-txt">Hace mínimo MÁS ALTO (línea sube)</span></div>' +
+    '<div class="guide-txt" style="margin-top:4px">El mercado baja pero el momentum no acompaña → agotamiento bajista → probable reversión al alza.</div>' +
+    '<hr class="guide-divider">' +
+    '<div class="guide-title">↘ DIVERGENCIA BAJISTA (BEAR)</div>' +
+    '<div class="guide-row"><span class="guide-tag tag-bear">PRECIO</span><span class="guide-txt">Hace máximo MÁS ALTO (línea sube)</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-bear">INDIC.</span><span class="guide-txt">Hace máximo MÁS BAJO (línea baja)</span></div>' +
+    '<div class="guide-txt" style="margin-top:4px">El mercado sube pero el momentum se agota → probable caída.</div>' +
+    '<hr class="guide-divider">' +
+    '<div class="guide-title">🎨 COLORES EN CHARTS</div>' +
+    '<div class="guide-row"><span class="guide-tag tag-srsi">Verde/Rojo</span><span class="guide-txt">StochRSI · Punteado · Círculos</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-macd">Amber/Naranja</span><span class="guide-txt">MACD · Punteado · Círculos</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-obv">Cian/Magenta</span><span class="guide-txt">OBV · SÓLIDO · Diamantes · Glow</span></div>' +
+    '</div>',
+
+  entries: '<div class="guide-section">' +
+    '<div class="guide-title">✅ VELA DE CONFIRMACIÓN</div>' +
+    '<div class="guide-txt"><b style="color:var(--grn)">BULL:</b> Vela verde que cierra sobre el máximo de la vela anterior. Indica que los compradores tomaron control.</div>' +
+    '<div class="guide-txt" style="margin-top:4px"><b style="color:var(--red)">BEAR:</b> Vela roja que cierra bajo el mínimo anterior. Indica que los vendedores tomaron control.</div>' +
+    '<hr class="guide-divider">' +
+    '<div class="guide-title">📋 FLUJO DE ENTRADA</div>' +
+    '<div class="guide-row"><span class="guide-tag tag-p3">1. P3</span><span class="guide-txt">Divergencia detectada. Observar chart.</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-p2">2. P2</span><span class="guide-txt">Confluencia. Definir SL y TP ya. Orden lista.</span></div>' +
+    '<div class="guide-row"><span class="guide-tag tag-p1">3. P1</span><span class="guide-txt">Vela confirma + sesión activa. Ejecutar.</span></div>' +
+    '<hr class="guide-divider">' +
+    '<div class="guide-title">💡 FILTROS DE CALIDAD</div>' +
+    '<div class="guide-txt"><b style="color:var(--acc)">⚡VOL</b> = pico de volumen (>1.5x promedio). Signal con volumen alto es más confiable.</div>' +
+    '<div class="guide-txt" style="margin-top:3px"><b style="color:var(--grn)">↑TEND</b> = señal con tendencia (EMA21>EMA50 para bull). Mayor probabilidad.</div>' +
+    '<div class="guide-txt" style="margin-top:3px"><b style="color:var(--red)">↓TEND</b> = señal contra tendencia. Reducir tamaño de posición.</div>' +
+    '</div>',
+};
+
+function cycleGuide() {
+  guideIdx = (guideIdx + 1) % GUIDE_TABS.length;
+  var labels = {'signals':'P1/P2/P3','indicators':'INDICADORES','divergence':'DIVERGENCIAS','entries':'ENTRADAS'};
+  var tab = GUIDE_TABS[guideIdx];
+  el('guide-tab-lbl').textContent = labels[tab];
+  el('guide-body').innerHTML = GUIDE_CONTENT[tab];
+}
+
+function initGuide() {
+  el('guide-body').innerHTML = GUIDE_CONTENT['signals'];
+}
 
 // ══════════════════════════════════════════════════════════════════
 // SECTION 3 — STATE
@@ -362,6 +615,7 @@ var bbData      = { upper:[], mid:[], lower:[] };
 var atrVals     = [];
 var ema21       = [], ema50 = [];
 var srsiDivs    = [], macdDivs = [], obvDivs = [];
+var volAvg      = [];
 var alertLog    = JSON.parse(localStorage.getItem('zec_alerts') || '[]');
 var seenKeys    = new Set(JSON.parse(localStorage.getItem('zec_seen')  || '[]'));
 var notifOn     = false;
@@ -640,33 +894,58 @@ function calcPriority() {
   var agreeList = keys.filter(function(nm){
     return allFresh.some(function(d){ return d.ind===nm && d.type===topType; });
   }).map(function(s){
-    return s==='obv' ? '⭐OBV' : s.toUpperCase();  // star = extra weight
+    return s==='obv' ? '⭐OBV' : s.toUpperCase();
   });
 
   var scoreStr = topScore + '/4';
-  var obvNote  = hasOBV ? ' 🔵OBV✓' : ' ⚠ sin OBV';
+  var obvNote  = hasOBV ? ' 🔵OBV✓' : ' ⚠sinOBV';
+
+  // Volume spike: check if most recent fresh pivot has volume spike
+  var volSpike = false;
+  var freshTop = allFresh.filter(function(d){ return d.type===topType; });
+  if (freshTop.length && volAvg.length) {
+    var lastIb = freshTop[freshTop.length-1].ib;
+    volSpike   = hasVolumeSpike(candles, volAvg, lastIb);
+  }
+
+  // Trend context at last candle
+  var n2          = candles.length;
+  var trendCtx    = n2 > 0 ? getTrendContext(topType, n2-1) : 'neutral';
+  var stochLevel  = getStochLevel(topType);
+
+  // Quality score (additive, displayed as badge)
+  var qualScore = topScore;
+  if (volSpike)            qualScore += 0.5;
+  if (trendCtx === 'with') qualScore += 0.5;
+
+  var qualLabel = qualScore >= 4 ? 'ALTA' : qualScore >= 3 ? 'MED' : 'BAJA';
+  var qualCls   = qualScore >= 4 ? 'high' : qualScore >= 3 ? 'med' : 'low';
+  var volBadge  = volSpike  ? ' ⚡VOL' : '';
+  var trendBadge= trendCtx === 'with'    ? ' ↑TEND'
+                : trendCtx === 'against' ? ' ↓TEND' : '';
+  var stochBadge= stochLevel === 'weak'  ? ' ⚠StRSI' : '';
 
   // P1: weighted score >= 3 (requires OBV) + confirmed + session
   if (topScore >= P1_THRESH && confirmed && inSess) {
-    return { level:1, type:topType, score:topScore, hasOBV:hasOBV,
+    return { level:1, type:topType, score:topScore, hasOBV:hasOBV, volSpike:volSpike, trendCtx:trendCtx, qualLabel:qualLabel, qualCls:qualCls, volBadge:volBadge, trendBadge:trendBadge, stochBadge:stochBadge,
       label:'🚨 P1 ENTRADA', scoreStr:scoreStr, obvNote:obvNote,
       agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
   }
   // P1 variant: score >= 3 + confirmed but outside session → P2 elevated
   if (topScore >= P1_THRESH && confirmed) {
-    return { level:2, type:topType, score:topScore, hasOBV:hasOBV,
+    return { level:2, type:topType, score:topScore, hasOBV:hasOBV, volSpike:volSpike, trendCtx:trendCtx, qualLabel:qualLabel, qualCls:qualCls, volBadge:volBadge, trendBadge:trendBadge, stochBadge:stochBadge,
       label:'⚠️ P2 CONFIRMAR (fuera sesión)', scoreStr:scoreStr, obvNote:obvNote,
       agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
   }
   // P2: weighted score >= 2 (OBV alone qualifies)
   if (topScore >= P2_THRESH) {
     var p2lbl = inSess ? '⚠️ P2 WATCH' : '⚠️ P2 WATCH (fuera sesión)';
-    return { level:2, type:topType, score:topScore, hasOBV:hasOBV,
+    return { level:2, type:topType, score:topScore, hasOBV:hasOBV, volSpike:volSpike, trendCtx:trendCtx, qualLabel:qualLabel, qualCls:qualCls, volBadge:volBadge, trendBadge:trendBadge, stochBadge:stochBadge,
       label:p2lbl, scoreStr:scoreStr, obvNote:obvNote,
       agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
   }
   // P3: any fresh signal
-  return { level:3, type:topType, score:topScore, hasOBV:hasOBV,
+  return { level:3, type:topType, score:topScore, hasOBV:hasOBV, volSpike:volSpike, trendCtx:trendCtx, qualLabel:qualLabel, qualCls:qualCls, volBadge:volBadge, trendBadge:trendBadge, stochBadge:stochBadge,
     label:'📡 P3 RADAR', scoreStr:scoreStr, obvNote:obvNote,
     agree:agreeList, entry:entryPrice, sl:slPrice, tp:tpPrice, inSession:inSess };
 }
@@ -985,7 +1264,8 @@ function updateStats() {
   var inSess = isInSession();
   var pill   = el('session-pill');
   var utcH   = new Date().getUTCHours();
-  pill.textContent = inSess ? '🟢 SESIÓN ACTIVA' : '🔴 '+(utcH<SESSION_UTC.start?'Pre-sesión':'Post-sesión');
+  var bogH = parseInt(new Date().toLocaleString('es-CO',{timeZone:'America/Bogota',hour:'2-digit',hour12:false}));
+  pill.textContent = inSess ? '🟢 ACTIVA '+bogH+'h BOG' : '🔴 INACTIVA '+bogH+'h BOG';
   pill.className   = 'session-pill '+(inSess?'active':'dead');
 
   // Priority + confluence
@@ -1017,18 +1297,19 @@ function updateStats() {
     el('s-prio').textContent = prio.label + ' ' + dirArrow;
     el('s-prio').className   = 'sv '+(prio.type==='bull'?'up':'dn');
 
-    // Show weighted score + OBV status
-    var scoreDisplay = prio.scoreStr + prio.obvNote;
+    // Show weighted score + quality badges
+    var scoreDisplay = prio.scoreStr + prio.obvNote + (prio.volBadge||'') + (prio.trendBadge||'') + (prio.stochBadge||'');
     var agreeStr     = prio.agree.join('+');
     var confirmStr   = prio.level===1 ? ' ✓CONF' : (prio.level===2 ? ' — preparar' : ' — radar');
     el('s-prio-t').textContent = scoreDisplay + ' · ' + agreeStr + confirmStr;
+    el('sc-priority').setAttribute('data-qual', prio.qualCls || 'low');
 
     if (prio.level === 1) {
       scPrio.className = 'sc '+(prio.type==='bull'?'p1':'p1b');
       banner.classList.add('show');
       if (prio.type==='bear') banner.classList.add('bear');
       el('sig-level').textContent = prio.label + ' ' + prio.scoreStr;
-      el('sig-body').textContent  = ASSET_LABEL+' · '+tf.toUpperCase()+' · '+agreeStr+prio.obvNote;
+      el('sig-body').textContent  = ASSET_LABEL+' · '+tf.toUpperCase()+' · '+agreeStr+(prio.obvNote||'')+(prio.volBadge||'')+(prio.trendBadge||'');
       el('sig-entry').textContent = (prio.type==='bull'?'COMPRA':'SHORT')+' ~$'+fp(prio.entry)+' | SL $'+fp(prio.sl)+' | TP $'+fp(prio.tp);
     }
   } else {
@@ -1042,7 +1323,7 @@ function updateStats() {
   var bullC = allDivs.filter(function(d){ return d.type==='bull'; }).length;
   var bearC = allDivs.filter(function(d){ return d.type==='bear'; }).length;
   // Show in last stat (reuse obv card sub)
-  el('s-upd') && (el('s-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-CO'));
+  el('s-upd') && (el('s-upd').textContent = 'Upd: '+ftBogota(new Date())+' BOG');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1078,7 +1359,13 @@ function processAlerts() {
       sl:     fp(prio.sl),
       tp:     fp(prio.tp),
       time:   ft(d.tb),
-      ts:     Date.now(),
+      ts:      Date.now(),
+      firedAt:   ftNow(),
+      pivotAt:   ft(d.tb),
+      score:     prio.scoreStr || '',
+      hasOBV:    prio.hasOBV || false,
+      volSpike:  prio.volSpike || false,
+      trendCtx:  prio.trendCtx || 'neutral',
     };
     alertLog.unshift(logEntry);
     if (alertLog.length > 80) alertLog.pop();
@@ -1094,23 +1381,91 @@ function processAlerts() {
 function renderLog() {
   var log = el('alert-log');
   if (!alertLog.length) {
-    log.innerHTML = '<div class="noalert">Sin señales aún.<br>🚨 P1 ENTRADA · ⚠️ P2 WATCH · 📡 P3 RADAR<br>aparecerán aquí en tiempo real.</div>';
+    log.innerHTML = '<div class="noalert">Sin señales aún.<br>🚨 P1 ENTRADA · ⚠️ P2 WATCH · 📡 P3 RADAR<br>aparecerán aquí con hora Bogotá (GMT-5).</div>';
     return;
   }
-  log.innerHTML = alertLog.map(function(a){
-    var levelMap = { 1:{ label:'🚨 P1 ENTRADA', cls:'p1'+(a.type==='bear'?'b':'') },
-                     2:{ label:'⚠️ P2 WATCH',   cls:'p2'+(a.type==='bear'?'b':'') },
-                     3:{ label:'📡 P3 RADAR',   cls:'p3' } };
-    var lv  = levelMap[a.level] || levelMap[3];
-    var dir = a.type==='bull'?'▲ BULL':'▼ BEAR';
-    var dotCls = a.ind.toLowerCase()+'-'+(a.type==='bull'?'bull':'bear');
-    return '<div class="ait '+lv.cls+'">'+
-      '<div class="adot '+dotCls+'"></div>'+
-      '<div>'+
-        '<div class="atit '+lv.cls+'">' + lv.label + ' · ' + dir + ' · ' + a.ind.toUpperCase() + '</div>'+
-        '<div class="amet">$'+a.price+' · SL $'+a.sl+' · TP $'+a.tp+'</div>'+
-        '<div class="amet">'+a.agree+' · '+a.time+'</div>'+
-      '</div>'+
+  log.innerHTML = alertLog.map(function(a) {
+    // Level info
+    var isP1  = a.level === 1;
+    var isP2  = a.level === 2;
+    var isBull= a.type === 'bull';
+    var lvCls = isP1 ? (isBull?'p1':'p1b') : isP2 ? (isBull?'p2':'p2b') : 'p3';
+    var lvLbl = isP1 ? (isBull?'🚨 P1 ENTRADA':'🚨 P1 ENTRADA') : isP2 ? '⚠️ P2 WATCH' : '📡 P3 RADAR';
+    var dirLbl= isBull ? '▲ COMPRA' : '▼ SHORT';
+    var dirCls= isBull ? 'bull' : 'bear';
+
+    // Indicator explanation
+    var indName = (a.ind||'').toUpperCase();
+    var indExplain = {
+      'SRSI': isBull
+        ? 'Stoch RSI: precio hizo mínimo más bajo pero el indicador no — el momentum bajista se agota.'
+        : 'Stoch RSI: precio hizo máximo más alto pero el indicador no — el momentum alcista se agota.',
+      'MACD': isBull
+        ? 'MACD: histograma diverge con el precio — el impulso bajista está perdiendo fuerza.'
+        : 'MACD: histograma diverge con el precio — el impulso alcista está perdiendo fuerza.',
+      'OBV':  isBull
+        ? '⭐ OBV (×2 peso): el volumen real SUBE mientras el precio baja — acumulación institucional silenciosa.'
+        : '⭐ OBV (×2 peso): el volumen real BAJA mientras el precio sube — distribución institucional silenciosa.',
+    };
+    var explainTxt = indExplain[indName] || 'Divergencia detectada entre precio e indicador.';
+
+    // Score display
+    var scoreStr = a.score || '';
+    var obvBadge = a.hasOBV
+      ? '<span class="guide-tag tag-obv" style="font-size:8px">⭐OBV✓</span>' : '';
+    var volBadge = a.volSpike
+      ? '<span class="vol-badge">⚡VOL</span>' : '';
+    var trendBadge= a.trendCtx==='with'
+      ? '<span class="trend-badge with">↑CON TENDENCIA</span>'
+      : a.trendCtx==='against'
+      ? '<span class="trend-badge against">↓CONTRA TENDENCIA</span>' : '';
+
+    // P1 action text
+    var actionTxt = isP1
+      ? (isBull ? 'Vela verde confirmó — considera COMPRAR ahora.' : 'Vela roja confirmó — considera SHORT ahora.')
+      : isP2
+      ? 'Espera vela de confirmación. Prepara la orden.'
+      : 'Señal temprana. Observa el chart.';
+
+    // firedAt or fallback
+    var firedTime = a.firedAt || a.time || '—';
+    var pivotTime = a.pivotAt || a.time || '—';
+
+    return '<div class="ait '+lvCls+'">' +
+      // ── Header ──
+      '<div class="ait-head">' +
+        '<span class="ait-level '+lvCls+'">' + lvLbl + '</span>' +
+        '<span class="ait-dir '+dirCls+'">' + dirLbl + ' ' + (a.ind||'').toUpperCase() + '</span>' +
+        '<div style="text-align:right">' +
+          '<div class="ait-time">🕐 ' + firedTime + '</div>' +
+          '<div class="ait-time-sub">Bogotá · GMT-5</div>' +
+        '</div>' +
+      '</div>' +
+      // ── Body ──
+      '<div class="ait-body">' +
+        '<div class="ait-row">' +
+          '<span class="ait-label">Precio entrada</span>' +
+          '<span class="ait-val ' + (isBull?'grn':'red') + '">~$' + (a.price||'—') + '</span>' +
+        '</div>' +
+        '<div class="ait-row">' +
+          '<span class="ait-label">Stop Loss</span>' +
+          '<span class="ait-val red">$' + (a.sl||'—') + '</span>' +
+          '<span class="ait-label" style="margin-left:12px">Take Profit</span>' +
+          '<span class="ait-val grn">$' + (a.tp||'—') + '</span>' +
+        '</div>' +
+        '<div class="ait-row">' +
+          '<span class="ait-label">Indicadores</span>' +
+          '<span class="ait-val" style="font-size:10px">' + (a.agree||indName) + (scoreStr?' ('+scoreStr+')':'') + '</span>' +
+        '</div>' +
+        '<div class="ait-row">' +
+          '<span class="ait-label">Pivot detectado</span>' +
+          '<span class="ait-val" style="font-size:9px;color:var(--tx2)">' + pivotTime + ' BOG</span>' +
+        '</div>' +
+        // ── Explanation ──
+        '<div class="ait-explain ' + dirCls + '">' + explainTxt + '<br><b style="color:var(--acc)">' + actionTxt + '</b></div>' +
+        // ── Badges ──
+        '<div class="ait-badges">' + obvBadge + volBadge + trendBadge + '</div>' +
+      '</div>' +
     '</div>';
   }).join('');
 }
@@ -1194,6 +1549,7 @@ function loadData() {
       ema21    = calcEMAArr(cl, 21);
       ema50    = calcEMAArr(cl, 50);
 
+      volAvg   = calcVolAvg(candles, 20);
       srsiDivs = detectDivs(candles, stochD,       'srsi');  // D line = smoother
       macdDivs = detectDivs(candles, macdData.line, 'macd');
       obvDivs  = detectDivs(candles, obvVals,       'obv');
@@ -1240,7 +1596,17 @@ window.addEventListener('resize', function(){
 
 initCharts();
 renderLog();
+initGuide();
+connectWS();
 loadData();
+
+// Refresh when tab becomes visible again (user returns to tab)
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden) {
+    clearInterval(timerH);
+    loadData();
+  }
+});
 </script>
 </body>
 </html>
