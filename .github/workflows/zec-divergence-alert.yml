@@ -34,7 +34,6 @@ jobs:
             const TIMEFRAMES  = [{label:'1H',mins:60},{label:'4H',mins:240}];
             const LOOKBACK    = 3;
             const FRESH_N     = 10;
-            const SESSION_UTC = {start:7, end:22};
             const FORCE       = '${{ github.event.inputs.force_alert }}' === 'true';
 
             // ══════════════════════════════════════
@@ -293,8 +292,7 @@ jobs:
               const bs4=(last.close<last.open?1:0)+(last.close<prev.low?1:0)+((prev.close-last.close)>minMove?1:0);
               const confirmed = topType==='BULLISH' ? bs3>=1 : bs4>=1;
 
-              const utcH    = new Date().getUTCHours();
-              const inSess  = utcH>=SESSION_UTC.start && utcH<SESSION_UTC.end;
+              const inSess = true; // 24/7
               const bbCtx   = lastBBP!==null ? (topType==='BULLISH'?lastBBP<0.35:lastBBP>0.65) : false;
               const agree   = inds.filter(nm=>fresh.some(d=>d.ind===nm&&d.type===topType));
               const hasOBV  = fresh.some(d=>d.ind==='OBV'&&d.type===topType);
@@ -321,7 +319,7 @@ jobs:
               else if(topScore>=2) level=2;
 
               return {level,topType,topScore,hasOBV,scoreStr,confirmed,
-                inSess,bbCtx,agree,entry,sl,tp,lastATR,utcH,volSpike,trendCtx};
+                inSess,bbCtx,agree,entry,sl,tp,lastATR,volSpike,trendCtx};
             }
 
             // ══════════════════════════════════════
@@ -421,7 +419,7 @@ jobs:
                 const obvStatus  = prio?.hasOBV ? '✅ OBV CONFIRMA (mayor confiabilidad)' : '⚠️ Sin OBV — señal de menor peso';
                 const volStatus  = prio?.volSpike ? '⚡ PICO DE VOLUMEN — señal más confiable' : '— Sin pico de volumen';
                 const trendDisp  = prio?.trendCtx==='with' ? '↑ CON TENDENCIA (EMA21>EMA50 para bull)' : prio?.trendCtx==='against' ? '↓ CONTRA TENDENCIA — reducir posición' : '— Neutro';
-                const sesionDisp = prio?.inSess ? '🟢 Activa ('+prio.utcH+'h UTC)' : '🔴 Fuera sesión ('+new Date().getUTCHours()+'h UTC)';
+                const sesionDisp = '🟢 24/7 Activo';
                 const bbDisp     = lastBBP!=null ? (lastBBP<0.35?'🟢 Cerca banda inferior — favorece BULL':lastBBP>0.65?'🔴 Cerca banda superior — favorece BEAR':'⚪ Zona media') : '—';
                 const confDisp   = prio?.confirmed ? '✅ Vela de confirmación detectada' : '⏳ Esperando vela de confirmación';
                 const entryDisp  = prio ? '~$'+fp(prio.entry) : '~$'+fp(lastClose);
